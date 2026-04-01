@@ -30,12 +30,18 @@
         <button id="add-problem">Add</button>
       </div>
       <div id="problems-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
-        <!-- Timers appear here -->
+        <!-- Individual problem timers will appear here -->
       </div>
     </div>
 
     <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
+      <!-- Moved to top -->
+      <div class="chart-section" id="active-chart-section" style="display: none; margin-bottom: 15px;">
+        <div class="chart-label">Active Problems (Mins)</div>
+        <div class="chart-container"><canvas id="activeProblemsChart"></canvas></div>
+      </div>
+
       <div class="stats-summary">
         <div class="stat-card">
           <div class="stat-value" id="total-problems">0</div>
@@ -50,19 +56,26 @@
           <div class="stat-label">Total Time</div>
         </div>
       </div>
-      <div class="chart-section"><div class="chart-label">7-Day Progress (Mins)</div><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
-      <div class="chart-section" id="active-chart-section" style="display: none; margin-top: 10px;"><div class="chart-label">Active (Mins)</div><div class="chart-container"><canvas id="activeProblemsChart"></canvas></div></div>
-      <div class="chart-section" style="margin-top: 10px;"><div class="chart-label">Hourly Activity</div><div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div></div>
+      
+      <div class="chart-section">
+        <div class="chart-label">7-Day Progress (Mins)</div>
+        <div class="chart-container"><canvas id="progressChart"></canvas></div>
+      </div>
+
+      <div class="chart-section" style="margin-top: 15px;">
+        <div class="chart-label">Hourly Activity (Solved Count)</div>
+        <div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div>
+      </div>
     </div>
 
     <!-- 3. History Section -->
     <div id="log" class="tab-content">
       <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff0033; padding: 5px;">
-        <!-- Logs appear here -->
+        <!-- History logs will appear here -->
       </div>
       <div class="controls" style="margin-top: 15px;">
         <button id="export-csv">Export CSV</button>
-        <button id="clear-log">Clear All</button>
+        <button id="clear-log">Clear History</button>
       </div>
     </div>
 
@@ -84,6 +97,7 @@
       <div class="controls"><button id="timer-pause">Pause</button><button id="timer-reset">Reset</button></div>
     </div>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

@@ -21,6 +21,7 @@
       <button class="tab-btn" data-tab="log">History</button>
       <button class="tab-btn" data-tab="standalone-sw">Stopwatch</button>
       <button class="tab-btn" data-tab="timer">Timer</button>
+      <button class="tab-btn" data-tab="about">About</button>
     </div>
 
     <!-- 1. Problems Section -->
@@ -36,43 +37,22 @@
 
     <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
-      <!-- Moved to top -->
       <div class="chart-section" id="active-chart-section" style="display: none; margin-bottom: 15px;">
         <div class="chart-label">Active Problems (Mins)</div>
         <div class="chart-container"><canvas id="activeProblemsChart"></canvas></div>
       </div>
-
       <div class="stats-summary">
-        <div class="stat-card">
-          <div class="stat-value" id="total-problems">0</div>
-          <div class="stat-label">Problems</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="current-streak">0</div>
-          <div class="stat-label">Day Streak</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-value" id="total-time-spent">0s</div>
-          <div class="stat-label">Total Time</div>
-        </div>
+        <div class="stat-card"><div class="stat-value" id="total-problems">0</div><div class="stat-label">Problems</div></div>
+        <div class="stat-card"><div class="stat-value" id="current-streak">0</div><div class="stat-label">Streak</div></div>
+        <div class="stat-card"><div class="stat-value" id="total-time-spent">0s</div><div class="stat-label">Total Time</div></div>
       </div>
-      
-      <div class="chart-section">
-        <div class="chart-label">7-Day Progress (Mins)</div>
-        <div class="chart-container"><canvas id="progressChart"></canvas></div>
-      </div>
-
-      <div class="chart-section" style="margin-top: 15px;">
-        <div class="chart-label">Hourly Activity (Solved Count)</div>
-        <div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div>
-      </div>
+      <div class="chart-section"><div class="chart-label">7-Day Progress</div><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
+      <div class="chart-section" style="margin-top: 15px;"><div class="chart-label">Hourly Activity</div><div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div></div>
     </div>
 
     <!-- 3. History Section -->
     <div id="log" class="tab-content">
-      <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff0033; padding: 5px;">
-        <!-- History logs will appear here -->
-      </div>
+      <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff0033; padding: 5px;"></div>
       <div class="controls" style="margin-top: 15px;">
         <button id="export-csv">Export CSV</button>
         <button id="clear-log">Clear History</button>
@@ -82,19 +62,55 @@
     <!-- 4. Standalone Stopwatch Section -->
     <div id="standalone-sw" class="tab-content">
       <div class="display" id="sw-display">00:00:00.00</div>
-      <div class="controls">
-        <button id="sw-start">Start</button>
-        <button id="sw-pause">Pause</button>
-        <button id="sw-reset">Reset</button>
-      </div>
+      <div class="controls"><button id="sw-start">Start</button><button id="sw-pause">Pause</button><button id="sw-reset">Reset</button></div>
     </div>
 
-    <!-- 5. Timer (Countdown) Section -->
+    <!-- 5. Timer Section -->
     <div id="timer" class="tab-content">
       <div class="display" id="timer-display">00:00:00</div>
       <div class="input-row"><input type="number" id="timer-input" placeholder="Minutes" min="1"><button id="timer-start">Start</button></div>
       <div class="presets"><button class="preset" data-time="5">5m</button><button class="preset" data-time="10">10m</button><button class="preset" data-time="25">25m</button></div>
       <div class="controls"><button id="timer-pause">Pause</button><button id="timer-reset">Reset</button></div>
+    </div>
+
+    <!-- 6. About Section -->
+    <div id="about" class="tab-content">
+      <div class="about-content">
+        <h3 style="color: #0f0; margin-top: 0;">Green Timer & Stopwatch</h3>
+        <p>The best LeetCode time tracker and habit builder to help you become a coding master.</p>
+        
+        <h4 style="border-bottom: 1px solid #0f0; padding-bottom: 3px;">Basic Features</h4>
+        <ul style="list-style: '✅ '; padding-left: 20px; font-size: 0.85em;">
+          <li>Track time for multiple LeetCode problems</li>
+          <li>Analyze habits with 7-day progress reports</li>
+          <li>Live charts for active and historical data</li>
+        </ul>
+
+        <h4 style="border-bottom: 1px solid #0f0; padding-bottom: 3px;">Advanced Features</h4>
+        <ul style="list-style: '✅ '; padding-left: 20px; font-size: 0.85em;">
+          <li><b>Auto-Detection:</b> Grabs problem names from LeetCode automatically</li>
+          <li><b>Account Sync:</b> Backup data with Google/Firefox accounts</li>
+          <li><b>Matrix Rain:</b> High-contrast green developer theme</li>
+          <li><b>Export:</b> Download history as CSV</li>
+        </ul>
+
+        <h4 style="border-bottom: 1px solid #0f0; padding-bottom: 3px;">How to use</h4>
+        <ol style="padding-left: 20px; font-size: 0.85em;">
+          <li>Pin the green icon to your toolbar</li>
+          <li>Browse LeetCode problems as usual</li>
+          <li>Open extension; the name is filled automatically!</li>
+          <li>Click <b>Add</b> then <b>Start</b> to begin</li>
+        </ol>
+
+        <div style="background: rgba(0,255,0,0.1); padding: 10px; border: 1px solid #0f0; margin-top: 15px; font-size: 0.8em;">
+          <strong>PROMISE:</strong> All data is stored in your browser's Local/Sync storage and never sent to 3rd party servers.
+        </div>
+
+        <p style="font-size: 0.8em; margin-top: 15px;">
+          Available for Chrome & Firefox.<br>
+          Source: <a href="https://github.com/nxorg/green-timer" target="_blank" style="color: #0f0;">github.com/nxorg/green-timer</a>
+        </p>
+      </div>
     </div>
   </div>
 

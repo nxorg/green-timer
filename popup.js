@@ -46,6 +46,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'log') renderHistory();
     if (btn.dataset.tab === 'stats') renderStats();
     if (btn.dataset.tab === 'stopwatch') renderProblems();
+    if (btn.dataset.tab === 'about') { /* No extra logic needed */ }
   });
 });
 

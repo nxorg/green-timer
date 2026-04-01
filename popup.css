@@ -32,7 +32,7 @@ body {
 
 .tab-btn {
   background: none; border: none; color: var(--green); font-family: inherit;
-  font-size: 0.75em; padding: 6px; cursor: pointer; opacity: 0.5; transition: 0.3s;
+  font-size: 0.7em; padding: 6px; cursor: pointer; opacity: 0.5; transition: 0.3s;
 }
 
 .tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--green); text-shadow: var(--glow); }
@@ -56,6 +56,12 @@ body {
 .problem-time { font-size: 1.1em; text-shadow: var(--glow); flex-grow: 1; }
 .btn-small { padding: 3px 6px; font-size: 0.65em; border: 1px solid var(--green); background: transparent; color: var(--green); cursor: pointer; }
 .btn-small:hover { background: var(--green); color: black; }
+
+/* About Section Styles */
+.about-content h4 { margin-bottom: 5px; margin-top: 15px; font-size: 0.9em; color: #0f0; }
+.about-content p { font-size: 0.85em; line-height: 1.4; opacity: 0.9; }
+.about-content ul, .about-content ol { margin-top: 5px; margin-bottom: 10px; }
+.about-content li { margin-bottom: 5px; }
 
 /* Form Elements */
 .display { font-size: 2.2em; text-align: center; margin: 5px 0; text-shadow: var(--glow); background: var(--bg-card); padding: 10px; }

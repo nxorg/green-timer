@@ -11,6 +11,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="timer">Timer</button>
       <button class="tab-btn" data-tab="stopwatch">Stopwatch</button>
+      <button class="tab-btn" data-tab="log">Log</button>
     </div>
 
     <!-- Timer Section -->
@@ -34,10 +35,24 @@
     <!-- Stopwatch Section -->
     <div id="stopwatch" class="tab-content">
       <div class="display" id="stopwatch-display">00:00:00.00</div>
+      <div class="input-row">
+        <input type="text" id="leetcode-problem" placeholder="Problem ID/Name" style="width: 150px;">
+        <button id="log-time">Log Time</button>
+      </div>
       <div class="controls">
         <button id="stopwatch-start">Start</button>
         <button id="stopwatch-pause">Pause</button>
         <button id="stopwatch-reset">Reset</button>
+      </div>
+    </div>
+
+    <!-- Log Section -->
+    <div id="log" class="tab-content">
+      <div id="log-list" style="max-height: 200px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff00; padding: 5px;">
+        <!-- Logs will appear here -->
+      </div>
+      <div class="controls" style="margin-top: 15px;">
+        <button id="clear-log">Clear All</button>
       </div>
     </div>
   </div>

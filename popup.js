@@ -4,11 +4,28 @@
  * GPLv3 License
  */
 
-const storageAPI = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' && browser.storage ? browser.storage.sync : null);
+// Cross-browser API wrapper
+const api = (typeof browser !== 'undefined') ? browser : chrome;
+const storageAPI = api.storage ? api.storage.sync : null;
 
 const activeStorage = {
-  get: (keys) => new Promise(res => { if (storageAPI) storageAPI.get(keys, d => res(d || {})); else { const r = {}; const ka = Array.isArray(keys) ? keys : [keys]; ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} }); res(r); } }),
-  set: (obj) => new Promise(res => { if (storageAPI) storageAPI.set(obj, () => res()); else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } })
+  get: (keys) => new Promise(res => {
+    if (storageAPI) {
+      storageAPI.get(keys, d => res(d || {}));
+    } else {
+      const r = {}; const ka = Array.isArray(keys) ? keys : [keys];
+      ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} });
+      res(r);
+    }
+  }),
+  set: (obj) => new Promise(res => {
+    if (storageAPI) {
+      storageAPI.set(obj, () => res());
+    } else {
+      for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k]));
+      res();
+    }
+  })
 };
 
 // --- Matrix Rain ---
@@ -67,31 +84,40 @@ function parseTimeToMs(ts) {
 function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
 
 // --- Auto-fill Detection ---
+let detectionRetries = 0;
 function updateProblemInput(title) {
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
   if (el && title && !el.value) {
     el.value = title;
     if (statusEl) statusEl.style.display = 'block';
+    return true;
   }
+  return false;
 }
 
 async function requestLeetCodeTitle() {
-  if (!chrome.tabs) return;
+  if (!api.tabs) return;
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabs = await api.tabs.query({ active: true, currentWindow: true });
+    const tab = tabs[0];
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
 
-    // 1. Try sending message to content script
-    chrome.tabs.sendMessage(tab.id, { type: 'get_leetcode_title' }, (response) => {
-      if (chrome.runtime.lastError) {
-        // 2. Fallback: If content script didn't load yet, use Tab Title
+    api.tabs.sendMessage(tab.id, { type: 'get_leetcode_title' }, (response) => {
+      if (api.runtime.lastError || !response || !response.title) {
+        // Fallback to Tab Title
         let title = tab.title;
         if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
-        updateProblemInput(title);
-        return;
+        const success = updateProblemInput(title);
+        
+        // If still no title and it's early, retry in 500ms
+        if (!success && detectionRetries < 4) {
+          detectionRetries++;
+          setTimeout(requestLeetCodeTitle, 500);
+        }
+      } else {
+        updateProblemInput(response.title);
       }
-      if (response && response.title) updateProblemInput(response.title);
     });
   } catch (e) { console.error("Detection failed", e); }
 }
@@ -119,11 +145,11 @@ function startTimerUI() {
 
 document.getElementById('timer-start').addEventListener('click', async () => {
   const mins = parseInt(document.getElementById('timer-input').value) || 0;
-  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(chrome.alarms) chrome.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
+  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
 });
 
-document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); if(chrome.alarms) chrome.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
-document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); if(chrome.alarms) chrome.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00'; });
+document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
+document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00'; });
 
 function updateSwDisplay() { const el = document.getElementById('sw-display'); if (el) el.textContent = formatTime(swElapsedTime, true); }
 function startStandaloneSwUI() { if (swInterval) clearInterval(swInterval); swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); }
@@ -172,8 +198,15 @@ document.getElementById('problems-container').addEventListener('click', async (e
 });
 
 // --- Listeners ---
-chrome.runtime.onMessage.addListener((msg) => {
+api.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'leetcode_title') updateProblemInput(msg.title);
+});
+
+api.commands?.onCommand.addListener((cmd) => {
+  if (cmd === 'toggle-timer' && problems.length > 0) {
+    const p = problems[0]; if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
+    saveProblems(); renderProblems();
+  }
 });
 
 // --- History & Stats ---
@@ -233,7 +266,7 @@ async function renderStats() {
   const ctxHo = document.getElementById('hourlyActivityChart');
   if(ctxHo) {
     if (hoChart) hoChart.destroy();
-    hoChart = new Chart(ctxHo, { type:'bar', data:{ labels:Array.from({length:24}, (_,i)=>i), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } });
+    hoChart = new Chart(ctxHo, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } });
   }
 }
 

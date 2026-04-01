@@ -26,12 +26,8 @@ class MatrixRain {
     this.drops = Array(this.columns).fill(1);
   }
   animate() {
-    if (document.hidden) {
-      requestAnimationFrame(() => this.animate());
-      return;
-    }
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
- this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    if (document.hidden) { requestAnimationFrame(() => this.animate()); return; }
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = '#0f0'; this.ctx.font = '15px monospace';
     for (let i = 0; i < this.drops.length; i++) {
       const text = String.fromCharCode(0x30A0 + Math.random() * 96);
@@ -51,7 +47,6 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'log') renderHistory();
     if (btn.dataset.tab === 'stats') renderStats();
     if (btn.dataset.tab === 'stopwatch') renderProblems();
-    if (btn.dataset.tab === 'about') { /* No extra logic needed */ }
   });
 });
 
@@ -70,6 +65,27 @@ function parseTimeToMs(ts) {
   return (parseInt(p[0]) * 3600000) + (parseInt(p[1]) * 60000) + (parseInt(sp[0]) * 1000) + (sp[1] ? parseInt(sp[1].substring(0,2).padEnd(2,'0'))*10 : 0);
 }
 function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
+
+// --- Auto-fill Detection ---
+function updateProblemInput(title) {
+  const el = document.getElementById('new-problem-name');
+  const statusEl = document.getElementById('detection-status');
+  if (el && title) {
+    el.value = title;
+    if (statusEl) statusEl.style.display = 'block';
+  }
+}
+
+async function requestLeetCodeTitle() {
+  if (!chrome.tabs) return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab && tab.url && tab.url.includes('leetcode.com/problems/')) {
+    chrome.tabs.sendMessage(tab.id, { type: 'get_leetcode_title' }, (response) => {
+      if (chrome.runtime.lastError) return;
+      if (response && response.title) updateProblemInput(response.title);
+    });
+  }
+}
 
 // --- Logic ---
 let timerInterval, swInterval;
@@ -103,7 +119,7 @@ document.getElementById('timer-reset').addEventListener('click', () => { clearIn
 function updateSwDisplay() { const el = document.getElementById('sw-display'); if (el) el.textContent = formatTime(swElapsedTime, true); }
 function startStandaloneSwUI() { if (swInterval) clearInterval(swInterval); swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); }
 document.getElementById('sw-start').addEventListener('click', async () => { if (swInterval) return; swStartTime = Date.now() - swElapsedTime; await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime }); startStandaloneSwUI(); });
-document.getElementById('sw-pause').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
+document.getElementById('sw-pause').addEventListener('click', async () => { if (swInterval) { clearInterval(swInterval); swInterval = null; } swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
 document.getElementById('sw-reset').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
 
 document.querySelectorAll('.preset').forEach(btn => { btn.addEventListener('click', () => { document.getElementById('timer-input').value = btn.dataset.time; }); });
@@ -127,7 +143,13 @@ function renderProblems() {
 
 document.getElementById('add-problem').addEventListener('click', async () => {
   const nEl = document.getElementById('new-problem-name'); const name = nEl.value.trim();
-  if (name) { problems.push({ name, elapsed: 0, isRunning: false, startTime: 0 }); nEl.value = ''; await saveProblems(); renderProblems(); }
+  if (name) {
+    problems.push({ name, elapsed: 0, isRunning: false, startTime: 0 });
+    nEl.value = '';
+    const statusEl = document.getElementById('detection-status');
+    if (statusEl) statusEl.style.display = 'none';
+    await saveProblems(); renderProblems();
+  }
 });
 
 document.getElementById('problems-container').addEventListener('click', async (e) => {
@@ -140,16 +162,19 @@ document.getElementById('problems-container').addEventListener('click', async (e
   await saveProblems(); renderProblems();
 });
 
-// --- Auto-fill & Shortcuts ---
-if(chrome.runtime) chrome.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_title') { const el = document.getElementById('new-problem-name'); if (el && !el.value) el.value = msg.title; } });
-if(chrome.commands) chrome.commands.onCommand.addListener((cmd) => {
+// --- Listeners ---
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'leetcode_title') updateProblemInput(msg.title);
+});
+
+chrome.commands?.onCommand.addListener((cmd) => {
   if (cmd === 'toggle-timer' && problems.length > 0) {
     const p = problems[0]; if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
     saveProblems(); renderProblems();
   }
 });
 
-// --- History & CSV ---
+// --- History & Stats ---
 async function logToHistory(name, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   h.unshift({ name, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
@@ -173,22 +198,18 @@ document.getElementById('export-csv').addEventListener('click', async () => {
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_history.csv'; a.click();
 });
 
-// --- Stats ---
 let hChart, aChart, hoChart;
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
   const logs = d.leetcode_history || []; const curr = d.leetcode_problems || [];
-  
   const totalMs = logs.reduce((s, l) => s + (l.elapsedMs || parseTimeToMs(l.timeStr)), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
-  // Streak Fix: using 'c' consistently
   const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].sort((a,b) => b.localeCompare(a));
   let streak = 0; if (days.length > 0) { let c = new Date(); c.setHours(0,0,0,0); if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) { if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1); for (let day of days) { if (day === getDateKey(c)) { streak++; c.setDate(c.getDate()-1); } else break; } } }
   document.getElementById('current-streak').textContent = streak;
 
-  // Chart 1: 7-Day
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
   const dailyMins = l7k.map(k => { const ms = logs.filter(l => getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr)), 0); return parseFloat((ms/60000).toFixed(2)); });
   const ctxH = document.getElementById('progressChart');
@@ -197,7 +218,6 @@ async function renderStats() {
     hChart = new Chart(ctxH, { type:'line', data:{ labels:l7l, datasets:[{ data:dailyMins, borderColor:'#0f0', backgroundColor:'rgba(0,255,0,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } });
   }
 
-  // Chart 2: Active
   const activeS = document.getElementById('active-chart-section');
   if (curr.length > 0 && activeS) {
     activeS.style.display = 'flex'; const ctxA = document.getElementById('activeProblemsChart');
@@ -207,7 +227,6 @@ async function renderStats() {
     }
   } else if (activeS) activeS.style.display = 'none';
 
-  // Chart 3: Hourly
   const hrData = Array(24).fill(0); logs.forEach(l => { hrData[new Date(l.timestamp).getHours()]++; });
   const ctxHo = document.getElementById('hourlyActivityChart');
   if(ctxHo) {
@@ -219,6 +238,6 @@ async function renderStats() {
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
-new MatrixRain(); loadProblems(); initTimers();
+new MatrixRain(); loadProblems(); initTimers(); requestLeetCodeTitle();
 setInterval(() => { problems.forEach((p,i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now()-p.startTime, true); } }); }, 100);
 async function init() { try { await renderHistory(); } catch(e){} } init();

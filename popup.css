@@ -57,12 +57,28 @@ body.light-mode #matrix-canvas {
   margin-bottom: 5px;
 }
 
+.brand-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+}
+
 .logo {
-  font-weight: bold;
-  font-size: 1.2em;
-  letter-spacing: 2px;
-  text-shadow: var(--glow);
+  font-weight: 700;
+  font-size: 1em;
+  letter-spacing: 1px;
   color: var(--green);
+}
+
+.version {
+  font-size: 0.65em;
+  background: var(--green);
+  color: var(--bg-dark);
+  padding: 2px 4px;
+  font-weight: 700;
 }
 
 #theme-toggle {

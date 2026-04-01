@@ -81,7 +81,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (['stats', 'about', 'standalone-sw'].includes(btn.dataset.tab)) matrix.start();
     else matrix.stop();
     if (btn.dataset.tab === 'log') renderHistory();
-    if (btn.dataset.tab === 'stats') renderStats();
+    if (btn.dataset.tab === 'stats') setTimeout(renderStats, 50);
     if (btn.dataset.tab === 'stopwatch') renderProblems();
   });
 });
@@ -418,11 +418,11 @@ async function renderStats() {
   const mainGreen = isLight ? '#008000' : '#00ff00';
   const gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
 
-  const totalMs = logs.reduce((s, l) => s + (l.elapsedMs || parseTimeToMs(l.timeStr)), 0);
+  const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
-  const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
+  const days = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
   let streak = 0; if (days.length > 0) {
     let c = new Date(); c.setHours(0,0,0,0);
     if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime() - 86400000))) {
@@ -433,10 +433,13 @@ async function renderStats() {
   document.getElementById('current-streak').textContent = streak;
 
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
-  const dailyMins = l7k.map(k => { const ms = logs.filter(l => getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr)), 0); return parseFloat((ms/60000).toFixed(2)); });
+  const dailyMins = l7k.map(k => {
+    const ms = logs.filter(l => l && l.timestamp && getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr) || 0), 0);
+    return parseFloat((ms/60000).toFixed(2));
+  });
   
   const hCtx = document.getElementById('progressChart');
-  if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'line', data:{ labels:l7l, datasets:[{ data:dailyMins, borderColor:mainGreen, backgroundColor:isLight?'rgba(0,128,0,0.1)':'rgba(0,255,0,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
+  if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'bar', data:{ labels:l7l, datasets:[{ data:dailyMins, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
 
   const activeS = document.getElementById('active-chart-section');
   if (curr.length > 0 && activeS) {
@@ -444,7 +447,7 @@ async function renderStats() {
     if(aCtx) { if (aChart) aChart.destroy(); aChart = new Chart(aCtx, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:9}}}, y:{ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
   } else if (activeS) activeS.style.display = 'none';
 
-  const hrData = Array(24).fill(0); logs.forEach(l => { const d = new Date(l.timestamp); if (!isNaN(d.getTime())) hrData[d.getHours()]++; });
+  const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp) { const d = new Date(l.timestamp); if (!isNaN(d.getTime())) hrData[d.getHours()]++; } });
   const hoCtx = document.getElementById('hourlyActivityChart');
   if(hoCtx) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCtx, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 }

@@ -217,16 +217,46 @@ async function logToHistory(prob, elapsed) {
   await activeStorage.set({ leetcode_history: h });
 }
 
+let currentHistory = [];
 async function renderHistory() {
-  const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  if (!l) return; if (h.length === 0) { l.innerHTML = '<div style="opacity: 0.5;">No history.</div>'; return; }
-  l.innerHTML = h.map(i => {
+  const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history');
+  currentHistory = d.leetcode_history || [];
+  if (!l) return;
+  filterHistory();
+}
+
+function filterHistory() {
+  const l = document.getElementById('log-list');
+  const query = document.getElementById('history-search').value.toLowerCase();
+  const filtered = currentHistory.filter(i => (i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query))));
+  
+  if (filtered.length === 0) { l.innerHTML = '<div style="opacity: 0.5; padding: 10px;">No results found.</div>'; return; }
+  
+  l.innerHTML = filtered.map((i, originalIdx) => {
     const dn = (i.number ? i.number + ". " : "") + i.name;
     const th = i.url ? `<a href="${i.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${dn}</a>` : dn;
     const dd = (val) => { const d = new Date(val); const now = new Date(); if (getDateKey(d) === getDateKey(now)) return "Today " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); return d.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}); };
-    return `<div class="log-entry"><strong>${th}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${dd(i.timestamp)}</small></div>`;
+    // Find index in original currentHistory for deletion
+    const realIdx = currentHistory.indexOf(i);
+    return `<div class="log-entry" style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <div><strong>${th}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${dd(i.timestamp)}</small></div>
+      <button class="btn-small" style="padding: 2px 5px; color: #ff0000; border-color: rgba(255,0,0,0.3);" data-index="${realIdx}" data-action="delete-history">X</button>
+    </div>`;
   }).join('');
 }
+
+document.getElementById('history-search').addEventListener('input', filterHistory);
+
+document.getElementById('log-list').addEventListener('click', async (e) => {
+  if (e.target.dataset.action === 'delete-history') {
+    const idx = parseInt(e.target.dataset.index);
+    if (confirm('Delete this entry?')) {
+      currentHistory.splice(idx, 1);
+      await activeStorage.set({ leetcode_history: currentHistory });
+      filterHistory();
+    }
+  }
+});
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
@@ -251,7 +281,7 @@ async function renderStats() {
     const todayK = getDateKey(check); const yesterdayK = getDateKey(new Date(check.getTime() - 86400000));
     if (days[0] === todayK || days[0] === yesterdayK) {
       let curC = (days[0] === todayK) ? check : new Date(check.getTime() - 86400000);
-      for (let day of days) { if (day === getDateKey(curC)) { streak++; currentCheck.setDate(currentCheck.getDate() - 1); } else break; }
+      for (let day of days) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
     }
   }
   document.getElementById('current-streak').textContent = streak;
@@ -272,7 +302,7 @@ async function renderStats() {
   if(ctxHo) { if (hoChart) hoChart.destroy(); hoChart = new Chart(ctxHo, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 }
 
-document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
 loadProblems(); initTimers(); requestLeetCodeTitle();

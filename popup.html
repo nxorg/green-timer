@@ -9,13 +9,27 @@
 <body>
   <div class="container">
     <div class="tabs">
-      <button class="tab-btn active" data-tab="timer">Timer</button>
-      <button class="tab-btn" data-tab="stopwatch">Stopwatch</button>
+      <button class="tab-btn active" data-tab="stopwatch">Stopwatch</button>
+      <button class="tab-btn" data-tab="timer">Timer</button>
       <button class="tab-btn" data-tab="log">Log</button>
     </div>
 
+    <!-- Stopwatch Section -->
+    <div id="stopwatch" class="tab-content active">
+      <div class="display" id="stopwatch-display">00:00:00.00</div>
+      <div class="input-row">
+        <input type="text" id="leetcode-problem" placeholder="Problem ID/Name" style="width: 150px;">
+        <button id="log-time">Log Time</button>
+      </div>
+      <div class="controls">
+        <button id="stopwatch-start">Start</button>
+        <button id="stopwatch-pause">Pause</button>
+        <button id="stopwatch-reset">Reset</button>
+      </div>
+    </div>
+
     <!-- Timer Section -->
-    <div id="timer" class="tab-content active">
+    <div id="timer" class="tab-content">
       <div class="display" id="timer-display">00:00:00</div>
       <div class="input-row">
         <input type="number" id="timer-input" placeholder="Minutes" min="1">
@@ -29,20 +43,6 @@
       <div class="controls">
         <button id="timer-pause">Pause</button>
         <button id="timer-reset">Reset</button>
-      </div>
-    </div>
-
-    <!-- Stopwatch Section -->
-    <div id="stopwatch" class="tab-content">
-      <div class="display" id="stopwatch-display">00:00:00.00</div>
-      <div class="input-row">
-        <input type="text" id="leetcode-problem" placeholder="Problem ID/Name" style="width: 150px;">
-        <button id="log-time">Log Time</button>
-      </div>
-      <div class="controls">
-        <button id="stopwatch-start">Start</button>
-        <button id="stopwatch-pause">Pause</button>
-        <button id="stopwatch-reset">Reset</button>
       </div>
     </div>
 

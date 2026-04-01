@@ -93,8 +93,8 @@ async function updateBadge() {
   
   if (api.action) {
     api.action.setBadgeText({ text: todayCount > 0 ? todayCount.toString() : "" });
-    api.action.setBadgeBackgroundColor({ color: "#00ff00" });
-    if (api.action.setBadgeTextColor) api.action.setBadgeTextColor({ color: "#000000" });
+    api.action.setBadgeBackgroundColor({ color: "#FF0000" });
+    if (api.action.setBadgeTextColor) api.action.setBadgeTextColor({ color: "#FFFFFF" });
   }
 }
 

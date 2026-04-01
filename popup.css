@@ -1,214 +1,68 @@
 /*
  * Green Timer & Stopwatch
  * Copyright (C) 2026 Manoj Kumar
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * GPLv3 License
  */
 
 :root {
   --green: #00ff00;
   --bg-dark: #0a0a0a;
-  --bg-card: #1a1a1a;
+  --bg-card: rgba(26, 26, 26, 0.9);
   --glow: 0 0 10px #00ff00;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
-  width: 100%;
-  max-width: 400px;
-  min-width: 320px;
-  background: var(--bg-dark);
-  color: var(--green);
+  width: 100%; max-width: 400px; min-width: 320px;
+  background: var(--bg-dark); color: var(--green);
   font-family: 'Courier New', Courier, monospace;
-  margin: 0;
-  padding: 15px;
-  border: 2px solid var(--green);
+  margin: 0; padding: 15px; border: 2px solid var(--green);
+  position: relative; overflow-x: hidden;
 }
 
-.container {
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
+#matrix-canvas {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  z-index: -1; opacity: 0.15; pointer-events: none;
 }
 
-.tabs {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--green);
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
+.container { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+
+.tabs { display: flex; justify-content: space-between; border-bottom: 1px solid var(--green); margin-bottom: 5px; flex-wrap: wrap; }
 
 .tab-btn {
-  background: none;
-  border: none;
-  color: var(--green);
-  font-family: inherit;
-  font-size: 0.8em;
-  padding: 6px;
-  cursor: pointer;
-  opacity: 0.5;
-  transition: opacity 0.3s;
+  background: none; border: none; color: var(--green); font-family: inherit;
+  font-size: 0.75em; padding: 6px; cursor: pointer; opacity: 0.5; transition: 0.3s;
 }
 
-.tab-btn.active {
-  opacity: 1;
-  font-weight: bold;
-  border-bottom: 3px solid var(--green);
-  text-shadow: var(--glow);
-}
+.tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--green); text-shadow: var(--glow); }
 
-.tab-content {
-  display: none;
-  max-height: 450px;
-  overflow-y: auto;
-}
+.tab-content { display: none; max-height: 480px; overflow-y: auto; padding-right: 5px; }
+.tab-content.active { display: flex; flex-direction: column; gap: 10px; }
 
-.tab-content.active {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* Stats */
+.stats-summary { display: flex; justify-content: space-around; gap: 8px; margin-bottom: 5px; }
+.stat-card { background: var(--bg-card); border: 1px solid var(--green); padding: 6px; text-align: center; flex-grow: 1; }
+.stat-value { font-size: 1.2em; font-weight: bold; text-shadow: var(--glow); }
+.stat-label { font-size: 0.6em; opacity: 0.7; }
+.chart-section { display: flex; flex-direction: column; gap: 3px; }
+.chart-label { font-size: 0.7em; font-weight: bold; opacity: 0.8; border-left: 2px solid var(--green); padding-left: 5px; }
+.chart-container { background: var(--bg-card); border: 1px solid var(--green); padding: 5px; height: 140px; }
 
-/* Stats Styles */
-.stats-summary {
-  display: flex;
-  justify-content: space-around;
-  gap: 10px;
-  margin-bottom: 10px;
-}
+/* Problems */
+.problem-row { border: 1px solid var(--green); padding: 8px; margin-bottom: 8px; background: var(--bg-card); display: flex; flex-direction: column; gap: 5px; }
+.problem-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px dashed rgba(0, 255, 0, 0.3); padding-bottom: 3px; font-size: 0.9em; }
+.problem-controls { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
+.problem-time { font-size: 1.1em; text-shadow: var(--glow); flex-grow: 1; }
+.btn-small { padding: 3px 6px; font-size: 0.65em; border: 1px solid var(--green); background: transparent; color: var(--green); cursor: pointer; }
+.btn-small:hover { background: var(--green); color: black; }
 
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--green);
-  padding: 8px;
-  text-align: center;
-  flex-grow: 1;
-}
+/* Form Elements */
+.display { font-size: 2.2em; text-align: center; margin: 5px 0; text-shadow: var(--glow); background: var(--bg-card); padding: 10px; }
+.input-row { display: flex; gap: 5px; align-items: center; }
+input, select { background: var(--bg-card); border: 1px solid var(--green); color: var(--green); padding: 8px; font-family: inherit; outline: none; width: 100%; }
+button { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }
+button:hover { background: var(--green); color: #000; box-shadow: var(--glow); }
 
-.stat-value {
-  font-size: 1.3em;
-  font-weight: bold;
-  text-shadow: var(--glow);
-}
-
-.stat-label {
-  font-size: 0.7em;
-  opacity: 0.7;
-}
-
-.chart-section {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.chart-label {
-  font-size: 0.75em;
-  font-weight: bold;
-  opacity: 0.8;
-  border-left: 2px solid var(--green);
-  padding-left: 5px;
-}
-
-.chart-container {
-  background: var(--bg-card);
-  border: 1px solid var(--green);
-  padding: 8px;
-  height: 160px;
-}
-
-/* Problem Row Styles */
-.problem-row {
-  border: 1px solid var(--green);
-  padding: 8px;
-  margin-bottom: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.problem-header {
-  display: flex;
-  justify-content: space-between;
-  font-weight: bold;
-  border-bottom: 1px dashed rgba(0, 255, 0, 0.3);
-  padding-bottom: 3px;
-}
-
-.problem-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 5px;
-}
-
-.problem-time {
-  font-size: 1.2em;
-  text-shadow: var(--glow);
-  flex-grow: 1;
-}
-
-.btn-small {
-  padding: 3px 6px;
-  font-size: 0.7em;
-  border: 1px solid var(--green);
-  background: transparent;
-  color: var(--green);
-  cursor: pointer;
-}
-
-.btn-small:hover {
-  background: var(--green);
-  color: black;
-}
-
-/* Global Styles */
-.display {
-  font-size: 2.5em;
-  text-align: center;
-  margin: 10px 0;
-  text-shadow: var(--glow);
-}
-
-.input-row {
-  display: flex;
-  gap: 5px;
-}
-
-input {
-  background: var(--bg-card);
-  border: 1px solid var(--green);
-  color: var(--green);
-  padding: 8px;
-  font-family: inherit;
-  outline: none;
-  width: 100%;
-}
-
-button {
-  background: transparent;
-  border: 1px solid var(--green);
-  color: var(--green);
-  padding: 8px 12px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: all 0.2s;
-}
-
-button:hover {
-  background: var(--green);
-  color: #000;
-  box-shadow: var(--glow);
-}
-
-#problems-container, #log-list, .tab-content {
-  scrollbar-width: thin;
-  scrollbar-color: var(--green) transparent;
-}
+#problems-container, #log-list, .tab-content { scrollbar-width: thin; scrollbar-color: var(--green) transparent; }
+.log-entry { border-bottom: 1px dashed rgba(0, 255, 0, 0.2); padding: 5px 0; }

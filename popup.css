@@ -10,7 +10,9 @@
 }
 
 body {
-  width: 360px;
+  width: 100%;
+  max-width: 400px;
+  min-width: 320px;
   background: var(--bg-dark);
   color: var(--green);
   font-family: 'Courier New', Courier, monospace;

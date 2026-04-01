@@ -1,4 +1,24 @@
-const storage = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' ? browser.storage.sync : null);
+// Dynamic storage selection with multi-layer fallback
+const getStorage = () => {
+  if (typeof chrome !== 'undefined') {
+    if (chrome.storage && chrome.storage.sync) return chrome.storage.sync;
+    if (chrome.storage && chrome.storage.local) return chrome.storage.local;
+  }
+  if (typeof browser !== 'undefined' && browser.storage) {
+    if (browser.storage.sync) return browser.storage.sync;
+    if (browser.storage.local) return browser.storage.local;
+  }
+  // Fallback to a mock for testing environments
+  return {
+    get: (key) => Promise.resolve({ [key]: JSON.parse(localStorage.getItem(key) || 'null') }),
+    set: (obj) => {
+      for (let key in obj) localStorage.setItem(key, JSON.stringify(obj[key]));
+      return Promise.resolve();
+    }
+  };
+};
+
+const storage = getStorage();
 
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(button => {
@@ -85,15 +105,15 @@ let swInterval = null;
 const swDisplay = document.getElementById('sw-display');
 
 async function initStandaloneSw() {
-  if (storage) {
+  try {
     const data = await storage.get('sw_elapsed');
     swElapsedTime = data.sw_elapsed || 0;
     updateSwDisplay();
-  }
+  } catch (e) { console.error("SW Init failed", e); }
 }
 
 function updateSwDisplay() {
-  swDisplay.textContent = formatTime(swElapsedTime, true);
+  if (swDisplay) swDisplay.textContent = formatTime(swElapsedTime, true);
 }
 
 document.getElementById('sw-start').addEventListener('click', () => {
@@ -102,7 +122,7 @@ document.getElementById('sw-start').addEventListener('click', () => {
   swInterval = setInterval(() => {
     swElapsedTime = Date.now() - swStartTime;
     updateSwDisplay();
-    if (storage) storage.set({ sw_elapsed: swElapsedTime });
+    storage.set({ sw_elapsed: swElapsedTime });
   }, 10);
 });
 
@@ -115,7 +135,7 @@ document.getElementById('sw-reset').addEventListener('click', () => {
   clearInterval(swInterval);
   swInterval = null;
   swElapsedTime = 0;
-  if (storage) storage.set({ sw_elapsed: 0 });
+  storage.set({ sw_elapsed: 0 });
   updateSwDisplay();
 });
 
@@ -123,21 +143,21 @@ document.getElementById('sw-reset').addEventListener('click', () => {
 let problems = [];
 
 async function loadProblems() {
-  if (storage) {
+  try {
     const data = await storage.get('leetcode_problems');
     problems = data.leetcode_problems || [];
     renderProblems();
-  }
+  } catch (e) { console.error("Load Problems failed", e); }
 }
 
 async function saveProblems() {
-  if (storage) {
-    await storage.set({ leetcode_problems: problems });
-  }
+  try { await storage.set({ leetcode_problems: problems }); }
+  catch (e) { console.error("Save Problems failed", e); }
 }
 
 function renderProblems() {
   const container = document.getElementById('problems-container');
+  if (!container) return;
   container.innerHTML = '';
   problems.forEach((p, index) => {
     const row = document.createElement('div');
@@ -212,17 +232,18 @@ setInterval(async () => {
 
 // History Logic
 async function logToHistory(name, elapsed) {
-  if (storage) {
+  try {
     const data = await storage.get('leetcode_history');
     const logs = data.leetcode_history || [];
     logs.unshift({ name, time: formatTime(elapsed, true), timestamp: new Date().toLocaleString() });
     await storage.set({ leetcode_history: logs });
-  }
+  } catch (e) { console.error("Log to History failed", e); }
 }
 
 async function renderHistory() {
   const list = document.getElementById('log-list');
-  if (storage) {
+  if (!list) return;
+  try {
     const data = await storage.get('leetcode_history');
     const logs = data.leetcode_history || [];
     if (logs.length === 0) {
@@ -230,42 +251,52 @@ async function renderHistory() {
       return;
     }
     list.innerHTML = logs.map(l => `
-      <div style="border-bottom: 1px dashed #00ff0033; padding: 5px 0;">
+      <div class="log-entry">
         <strong>${l.name}</strong>: ${l.time}<br>
         <small style="opacity: 0.6;">${l.timestamp}</small>
       </div>
     `).join('');
-  }
+  } catch (e) { console.error("Render History failed", e); }
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => {
   if (confirm('Clear all history?')) {
-    if (storage) await storage.set({ leetcode_history: [] });
+    await storage.set({ leetcode_history: [] });
     await renderHistory();
   }
 });
 
 // Notifications
 function playBeep() {
-  const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-  gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-  oscillator.start();
-  oscillator.stop(audioContext.currentTime + 0.5);
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.5);
+  } catch (e) { console.error("Beep failed", e); }
 }
 
 function notifyUser() {
   playBeep();
   const options = { type: "basic", iconUrl: "icons/icon-48.png", title: "Time's Up!", message: "Your timer has finished." };
-  if (typeof chrome !== 'undefined' && chrome.notifications) chrome.notifications.create(options);
-  else if (typeof browser !== 'undefined' && browser.notifications) browser.notifications.create(options);
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.notifications) {
+    chrome.notifications.create(options);
+  } else if (typeof browser !== 'undefined' && browser.notifications) {
+    browser.notifications.create(options);
+  }
 }
 
 // Initial loads
-initStandaloneSw();
-loadProblems();
+async function init() {
+  await initStandaloneSw();
+  await loadProblems();
+  await renderHistory();
+}
+
+init();

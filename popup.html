@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Green Timer</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="timer">Timer</button>
+      <button class="tab-btn" data-tab="stopwatch">Stopwatch</button>
+    </div>
+
+    <!-- Timer Section -->
+    <div id="timer" class="tab-content active">
+      <div class="display" id="timer-display">00:00:00</div>
+      <div class="input-row">
+        <input type="number" id="timer-input" placeholder="Minutes" min="1">
+        <button id="timer-start">Start</button>
+      </div>
+      <div class="presets">
+        <button class="preset" data-time="5">5m</button>
+        <button class="preset" data-time="10">10m</button>
+        <button class="preset" data-time="25">25m</button>
+      </div>
+      <div class="controls">
+        <button id="timer-pause">Pause</button>
+        <button id="timer-reset">Reset</button>
+      </div>
+    </div>
+
+    <!-- Stopwatch Section -->
+    <div id="stopwatch" class="tab-content">
+      <div class="display" id="stopwatch-display">00:00:00.00</div>
+      <div class="controls">
+        <button id="stopwatch-start">Start</button>
+        <button id="stopwatch-pause">Pause</button>
+        <button id="stopwatch-reset">Reset</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

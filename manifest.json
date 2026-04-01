@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Green Timer & Stopwatch",
+  "version": "1.0",
+  "description": "A sleek #00ff00 themed timer and stopwatch extension.",
+  "permissions": ["notifications", "alarms"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "48": "icons/icon-48.png"
+    }
+  },
+  "icons": {
+    "48": "icons/icon-48.png"
+  }
+}

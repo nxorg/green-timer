@@ -1,0 +1,102 @@
+:root {
+  --green: #00ff00;
+  --bg-dark: #121212;
+  --bg-card: #1e1e1e;
+}
+
+body {
+  width: 320px;
+  background: var(--bg-dark);
+  color: var(--green);
+  font-family: 'Courier New', Courier, monospace;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--green);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tabs {
+  display: flex;
+  justify-content: space-around;
+  border-bottom: 1px solid var(--green);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--green);
+  font-family: inherit;
+  font-size: 1.1em;
+  padding: 8px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.tab-btn.active {
+  opacity: 1;
+  font-weight: bold;
+  border-bottom: 2px solid var(--green);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+.display {
+  font-size: 2.5em;
+  text-align: center;
+  margin: 15px 0;
+  text-shadow: 0 0 10px var(--green);
+}
+
+.input-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+input[type="number"] {
+  background: var(--bg-card);
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 8px;
+  width: 100px;
+}
+
+button {
+  background: transparent;
+  border: 1px solid var(--green);
+  color: var(--green);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.3s;
+}
+
+button:hover {
+  background: var(--green);
+  color: black;
+  box-shadow: 0 0 10px var(--green);
+}
+
+.presets {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}

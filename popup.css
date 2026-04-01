@@ -9,8 +9,8 @@
   --bg-dark: #0a0a0a;
   --bg-card: rgba(26, 26, 26, 0.9);
   --glow: 0 0 10px #00ff00;
-  --radius: 8px;
-  --radius-sm: 4px;
+  --radius: 0px; /* Square edges */
+  --radius-sm: 0px; /* Square edges */
 }
 
 * { box-sizing: border-box; }
@@ -19,15 +19,14 @@ body {
   width: 100%; max-width: 400px; min-width: 320px;
   background: var(--bg-dark); color: var(--green);
   font-family: 'Courier New', Courier, monospace;
-  margin: 0; padding: 15px; border: 0px solid var(--green);
+  margin: 0; padding: 15px; border: 2px solid var(--green);
   position: relative; overflow-x: hidden;
-  border-radius: var(--radius); /* Rounded main window */
+  border-radius: var(--radius); 
 }
 
 #matrix-canvas {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
   z-index: -1; opacity: 0.15; pointer-events: none;
-  border-radius: var(--radius);
 }
 
 .container { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
@@ -37,7 +36,6 @@ body {
 .tab-btn {
   background: none; border: none; color: var(--green); font-family: inherit;
   font-size: 0.7em; padding: 6px; cursor: pointer; opacity: 0.5; transition: 0.3s;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
 }
 
 .tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--green); text-shadow: var(--glow); }
@@ -61,11 +59,6 @@ body {
 .problem-time { font-size: 1.1em; text-shadow: var(--glow); flex-grow: 1; }
 .btn-small { padding: 3px 6px; font-size: 0.65em; border: 1px solid var(--green); background: transparent; color: var(--green); cursor: pointer; border-radius: var(--radius-sm); }
 .btn-small:hover { background: var(--green); color: black; }
-
-/* About content box */
-.about-content div[style*="background"] {
-  border-radius: var(--radius-sm);
-}
 
 /* Form Elements */
 .display { font-size: 2.2em; text-align: center; margin: 5px 0; text-shadow: var(--glow); background: var(--bg-card); padding: 10px; border-radius: var(--radius-sm); }

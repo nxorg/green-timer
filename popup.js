@@ -71,8 +71,14 @@ function parseTimeToMs(timeStr) {
   const minutes = parseInt(parts[1]) || 0;
   const secondsParts = parts[2].split('.');
   const seconds = parseInt(secondsParts[0]) || 0;
-  const msPart = secondsParts[1] ? parseInt(secondsParts[1].padEnd(2, '0')) : 0;
+  const msPart = secondsParts[1] ? parseInt(secondsParts[1].substring(0, 2).padEnd(2, '0')) : 0;
   return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + (msPart * 10);
+}
+
+// Helper to get a consistent date key (YYYY-MM-DD)
+function getDateKey(dateObj) {
+  const d = new Date(dateObj);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 // --- Timer Logic (Countdown) ---
@@ -274,8 +280,7 @@ async function logToHistory(name, elapsed) {
     name,
     timeStr: formatTime(elapsed, true),
     elapsedMs: elapsed,
-    timestamp: Date.now(),
-    dateStr: new Date().toLocaleDateString()
+    timestamp: Date.now()
   });
   await activeStorage.set({ leetcode_history: logs });
 }
@@ -297,34 +302,37 @@ async function renderStats() {
   const data = await activeStorage.get('leetcode_history');
   const logs = data.leetcode_history || [];
   
-  // Calculate total stats (with legacy parsing)
+  // Calculate total stats
   const totalProblems = logs.length;
   const totalMs = logs.reduce((sum, l) => {
     const ms = l.elapsedMs || parseTimeToMs(l.timeStr || l.time);
     return sum + ms;
   }, 0);
-  const totalMins = Math.round(totalMs / 60000);
+  
+  // Improved time display: show mins and secs
+  const totalMinsDisplay = Math.floor(totalMs / 60000);
+  const totalSecsDisplay = Math.floor((totalMs % 60000) / 1000);
+  const displayStr = totalMinsDisplay > 0 ? `${totalMinsDisplay}m ${totalSecsDisplay}s` : `${totalSecsDisplay}s`;
   
   document.getElementById('total-problems').textContent = totalProblems;
-  document.getElementById('total-time-spent').textContent = `${totalMins}m`;
+  document.getElementById('total-time-spent').textContent = displayStr;
   
   // Group by last 7 days for the chart
   const last7Days = [];
+  const last7Keys = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    last7Days.push(d.toLocaleDateString());
+    last7Days.push(String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'));
+    last7Keys.push(getDateKey(d));
   }
   
-  const dailyMins = last7Days.map(dateStr => {
-    const dayLogs = logs.filter(l => {
-      const logDate = l.timestamp ? new Date(l.timestamp).toLocaleDateString() : l.dateStr;
-      return logDate === dateStr;
-    });
+  const dailyMins = last7Keys.map(key => {
+    const dayLogs = logs.filter(l => getDateKey(l.timestamp || new Date()) === key);
     const dayMs = dayLogs.reduce((sum, l) => {
       return sum + (l.elapsedMs || parseTimeToMs(l.timeStr || l.time));
     }, 0);
-    return Math.round(dayMs / 60000);
+    return parseFloat((dayMs / 60000).toFixed(2)); // Show partial minutes on chart
   });
   
   // Render Chart.js
@@ -336,7 +344,7 @@ async function renderStats() {
   myChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: last7Days.map(d => d.split('/')[0] + '/' + d.split('/')[1]),
+      labels: last7Days,
       datasets: [{
         label: 'Minutes Spent',
         data: dailyMins,

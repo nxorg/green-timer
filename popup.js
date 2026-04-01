@@ -7,9 +7,8 @@ document.querySelectorAll('.tab-btn').forEach(button => {
     button.classList.add('active');
     document.getElementById(button.dataset.tab).classList.add('active');
     
-    if (button.dataset.tab === 'log') {
-      renderLogs();
-    }
+    if (button.dataset.tab === 'log') renderHistory();
+    if (button.dataset.tab === 'stopwatch') renderProblems();
   });
 });
 
@@ -32,33 +31,26 @@ function formatTime(ms, isStopwatch = false) {
   return display;
 }
 
-// Timer Logic
+// Timer Logic (Simple Countdown)
 let timerInterval;
 let timerTimeLeft = 0;
-
 const timerDisplay = document.getElementById('timer-display');
 const timerInput = document.getElementById('timer-input');
-const timerStartBtn = document.getElementById('timer-start');
-const timerPauseBtn = document.getElementById('timer-pause');
-const timerResetBtn = document.getElementById('timer-reset');
 
 function updateTimerDisplay() {
   timerDisplay.textContent = formatTime(timerTimeLeft);
 }
 
-timerStartBtn.addEventListener('click', () => {
+document.getElementById('timer-start').addEventListener('click', () => {
   if (timerInterval) return;
-  
   if (timerTimeLeft <= 0) {
     const minutes = parseInt(timerInput.value) || 0;
     timerTimeLeft = minutes * 60 * 1000;
   }
-  
   if (timerTimeLeft > 0) {
     timerInterval = setInterval(() => {
       timerTimeLeft -= 1000;
       updateTimerDisplay();
-      
       if (timerTimeLeft <= 0) {
         clearInterval(timerInterval);
         timerInterval = null;
@@ -70,135 +62,172 @@ timerStartBtn.addEventListener('click', () => {
   }
 });
 
-timerPauseBtn.addEventListener('click', () => {
+document.getElementById('timer-pause').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
 });
 
-timerResetBtn.addEventListener('click', () => {
+document.getElementById('timer-reset').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
   timerTimeLeft = 0;
-  timerInput.value = '';
   updateTimerDisplay();
 });
 
 document.querySelectorAll('.preset').forEach(btn => {
   btn.addEventListener('click', () => {
-    const mins = parseInt(btn.dataset.time);
-    timerTimeLeft = mins * 60 * 1000;
+    timerTimeLeft = parseInt(btn.dataset.time) * 60 * 1000;
     updateTimerDisplay();
   });
 });
 
+// Problems (Multi-Stopwatch) Logic
+let problems = JSON.parse(localStorage.getItem('leetcode_problems') || '[]');
+let problemsInterval;
+
+function saveProblems() {
+  localStorage.setItem('leetcode_problems', JSON.stringify(problems));
+}
+
+function renderProblems() {
+  const container = document.getElementById('problems-container');
+  container.innerHTML = '';
+  
+  problems.forEach((p, index) => {
+    const row = document.createElement('div');
+    row.className = 'problem-row';
+    row.innerHTML = `
+      <div class="problem-header">
+        <span>${p.name}</span>
+        <button class="btn-small" data-index="${index}" data-action="delete">X</button>
+      </div>
+      <div class="problem-controls">
+        <div class="problem-time" id="time-${index}">${formatTime(p.elapsed, true)}</div>
+        <button class="btn-small" data-index="${index}" data-action="toggle">
+          ${p.isRunning ? 'PAUSE' : 'START'}
+        </button>
+        <button class="btn-small" data-index="${index}" data-action="reset">RESET</button>
+        <button class="btn-small" data-index="${index}" data-action="finish">FINISH</button>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+document.getElementById('add-problem').addEventListener('click', () => {
+  const input = document.getElementById('new-problem-name');
+  const name = input.value.trim();
+  if (!name) return;
+  
+  problems.push({
+    name,
+    elapsed: 0,
+    isRunning: false,
+    lastTick: 0
+  });
+  
+  input.value = '';
+  saveProblems();
+  renderProblems();
+});
+
+document.getElementById('problems-container').addEventListener('click', (e) => {
+  const action = e.target.dataset.action;
+  const index = parseInt(e.target.dataset.index);
+  if (action === undefined) return;
+  
+  if (action === 'toggle') {
+    const p = problems[index];
+    p.isRunning = !p.isRunning;
+    p.lastTick = Date.now();
+  } else if (action === 'reset') {
+    problems[index].elapsed = 0;
+    problems[index].isRunning = false;
+  } else if (action === 'delete') {
+    problems.splice(index, 1);
+  } else if (action === 'finish') {
+    const p = problems[index];
+    logToHistory(p.name, p.elapsed);
+    problems.splice(index, 1);
+  }
+  
+  saveProblems();
+  renderProblems();
+});
+
+// Update running timers every 100ms
+setInterval(() => {
+  let changed = false;
+  problems.forEach((p, index) => {
+    if (p.isRunning) {
+      const now = Date.now();
+      const delta = now - p.lastTick;
+      p.elapsed += delta;
+      p.lastTick = now;
+      changed = true;
+      
+      const timeEl = document.getElementById(`time-${index}`);
+      if (timeEl) timeEl.textContent = formatTime(p.elapsed, true);
+    }
+  });
+  if (changed) saveProblems();
+}, 100);
+
+// History Logic
+function logToHistory(name, elapsed) {
+  const logs = JSON.parse(localStorage.getItem('leetcode_history') || '[]');
+  logs.unshift({
+    name,
+    time: formatTime(elapsed, true),
+    timestamp: new Date().toLocaleString()
+  });
+  localStorage.setItem('leetcode_history', JSON.stringify(logs));
+}
+
+function renderHistory() {
+  const list = document.getElementById('log-list');
+  const logs = JSON.parse(localStorage.getItem('leetcode_history') || '[]');
+  
+  if (logs.length === 0) {
+    list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
+    return;
+  }
+  
+  list.innerHTML = logs.map(l => `
+    <div style="border-bottom: 1px dashed #00ff0033; padding: 5px 0;">
+      <strong>${l.name}</strong>: ${l.time}<br>
+      <small style="opacity: 0.6;">${l.timestamp}</small>
+    </div>
+  `).join('');
+}
+
+document.getElementById('clear-log').addEventListener('click', () => {
+  if (confirm('Clear all history?')) {
+    localStorage.setItem('leetcode_history', '[]');
+    renderHistory();
+  }
+});
+
+// Notifications
 function playBeep() {
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const oscillator = audioContext.createOscillator();
   const gainNode = audioContext.createGain();
-
   oscillator.connect(gainNode);
   gainNode.connect(audioContext.destination);
-
   oscillator.type = 'sine';
   oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
   gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-
   oscillator.start();
   oscillator.stop(audioContext.currentTime + 0.5);
 }
 
 function notifyUser() {
   playBeep();
-  const options = {
-    "type": "basic",
-    "iconUrl": "icons/icon-48.png",
-    "title": "Time's Up!",
-    "message": "Your timer has finished."
-  };
-  
-  if (typeof browser !== 'undefined' && browser.notifications) {
-    browser.notifications.create(options);
-  } else if (typeof chrome !== 'undefined' && chrome.notifications) {
-    chrome.notifications.create(options);
-  }
+  const options = { type: "basic", iconUrl: "icons/icon-48.png", title: "Time's Up!", message: "Your timer has finished." };
+  if (typeof chrome !== 'undefined' && chrome.notifications) chrome.notifications.create(options);
+  else if (typeof browser !== 'undefined' && browser.notifications) browser.notifications.create(options);
 }
 
-// Stopwatch Logic
-let swInterval;
-let swStartTime;
-let swElapsedTime = 0;
-
-const swDisplay = document.getElementById('stopwatch-display');
-const swStartBtn = document.getElementById('stopwatch-start');
-const swPauseBtn = document.getElementById('stopwatch-pause');
-const swResetBtn = document.getElementById('stopwatch-reset');
-const swProblemInput = document.getElementById('leetcode-problem');
-const swLogBtn = document.getElementById('log-time');
-
-function updateSwDisplay() {
-  swDisplay.textContent = formatTime(swElapsedTime, true);
-}
-
-swStartBtn.addEventListener('click', () => {
-  if (swInterval) return;
-  swStartTime = Date.now() - swElapsedTime;
-  swInterval = setInterval(() => {
-    swElapsedTime = Date.now() - swStartTime;
-    updateSwDisplay();
-  }, 10);
-});
-
-swPauseBtn.addEventListener('click', () => {
-  clearInterval(swInterval);
-  swInterval = null;
-});
-
-swResetBtn.addEventListener('click', () => {
-  clearInterval(swInterval);
-  swInterval = null;
-  swElapsedTime = 0;
-  swProblemInput.value = '';
-  updateSwDisplay();
-});
-
-swLogBtn.addEventListener('click', () => {
-  const problem = swProblemInput.value || "Unknown Problem";
-  const timeStr = formatTime(swElapsedTime, true);
-  const logEntry = {
-    problem,
-    time: timeStr,
-    timestamp: new Date().toLocaleString()
-  };
-  
-  const logs = JSON.parse(localStorage.getItem('leetcode_logs') || '[]');
-  logs.unshift(logEntry);
-  localStorage.setItem('leetcode_logs', JSON.stringify(logs));
-  
-  swProblemInput.value = '';
-  alert(`Logged: ${problem} - ${timeStr}`);
-});
-
-// Log Logic
-function renderLogs() {
-  const logList = document.getElementById('log-list');
-  const logs = JSON.parse(localStorage.getItem('leetcode_logs') || '[]');
-  
-  if (logs.length === 0) {
-    logList.innerHTML = '<div style="opacity: 0.5;">No logs yet.</div>';
-    return;
-  }
-  
-  logList.innerHTML = logs.map(log => `
-    <div class="log-entry">
-      <strong>${log.problem}</strong>: ${log.time}<br>
-      <small style="opacity: 0.7;">${log.timestamp}</small>
-    </div>
-  `).join('');
-}
-
-document.getElementById('clear-log').addEventListener('click', () => {
-  if (confirm('Clear all logs?')) {
-    localStorage.removeItem('leetcode_logs');
-    renderLogs();
-  }
-});
+// Initial render
+renderProblems();

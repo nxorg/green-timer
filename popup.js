@@ -182,16 +182,81 @@ async function loadProblems() { const d = await activeStorage.get('leetcode_prob
 async function saveProblems() { await activeStorage.set({ leetcode_problems: problems }); }
 
 function renderProblems() {
-  const c = document.getElementById('problems-container'); if (!c) return; c.innerHTML = '';
+  const c = document.getElementById('problems-container');
+  if (!c) return;
+
+  c.replaceChildren();
+
   problems.forEach((p, i) => {
-    const r = document.createElement('div'); r.className = 'problem-row';
+    const r = document.createElement('div');
+    r.className = 'problem-row';
+
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
     const dn = (p.number ? p.number + ". " : "") + p.name;
-    const th = p.url ? `<a href="${p.url}" target="_blank" style="color: var(--green); text-decoration: none; border-bottom: 1px dashed var(--green);">${dn}</a>` : dn;
-    r.innerHTML = `<div class="problem-header"><span>${th}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
-    <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
-    <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
-    <button class="btn-small" data-index="${i}" data-action="reset">RESET</button><button class="btn-small" data-index="${i}" data-action="finish">FINISH</button></div>`;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'problem-header';
+
+    const span = document.createElement('span');
+
+    if (p.url) {
+      const a = document.createElement('a');
+      a.href = p.url;
+      a.target = '_blank';
+      a.style.color = 'var(--green)';
+      a.style.textDecoration = 'none';
+      a.style.borderBottom = '1px dashed var(--green)';
+      a.textContent = dn;
+      span.appendChild(a);
+    } else {
+      span.textContent = dn;
+    }
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-small';
+    delBtn.textContent = 'X';
+    delBtn.dataset.index = i;
+    delBtn.dataset.action = 'delete';
+
+    header.appendChild(span);
+    header.appendChild(delBtn);
+
+    // Controls
+    const controls = document.createElement('div');
+    controls.className = 'problem-controls';
+
+    const time = document.createElement('div');
+    time.className = 'problem-time';
+    time.id = `time-${i}`;
+    time.textContent = formatTime(cur, true);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'btn-small';
+    toggleBtn.textContent = p.isRunning ? 'PAUSE' : 'START';
+    toggleBtn.dataset.index = i;
+    toggleBtn.dataset.action = 'toggle';
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'btn-small';
+    resetBtn.textContent = 'RESET';
+    resetBtn.dataset.index = i;
+    resetBtn.dataset.action = 'reset';
+
+    const finishBtn = document.createElement('button');
+    finishBtn.className = 'btn-small';
+    finishBtn.textContent = 'FINISH';
+    finishBtn.dataset.index = i;
+    finishBtn.dataset.action = 'finish';
+
+    controls.appendChild(time);
+    controls.appendChild(toggleBtn);
+    controls.appendChild(resetBtn);
+    controls.appendChild(finishBtn);
+
+    r.appendChild(header);
+    r.appendChild(controls);
+
     c.appendChild(r);
   });
 }
@@ -242,19 +307,91 @@ async function renderHistory() {
 }
 
 function filterHistory() {
-  const l = document.getElementById('log-list'); const query = document.getElementById('history-search').value.toLowerCase();
-  const filtered = currentHistory.filter(i => (i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query))));
-  if (filtered.length === 0) { l.innerHTML = '<div style="opacity: 0.5; padding: 10px;">No results found.</div>'; return; }
-  l.innerHTML = filtered.map(i => {
+  const l = document.getElementById('log-list');
+  const query = document.getElementById('history-search').value.toLowerCase();
+
+  const filtered = currentHistory.filter(i =>
+    i.name.toLowerCase().includes(query) ||
+    (i.number && i.number.toString().includes(query))
+  );
+
+  l.replaceChildren();
+
+  if (filtered.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.opacity = '0.5';
+    msg.style.padding = '10px';
+    msg.textContent = 'No results found.';
+    l.appendChild(msg);
+    return;
+  }
+
+  filtered.forEach(i => {
     const dn = (i.number ? i.number + ". " : "") + i.name;
-    const th = i.url ? `<a href="${i.url}" target="_blank" style="color: var(--green); text-decoration: none; border-bottom: 1px dashed var(--green);">${dn}</a>` : dn;
-    const dd = (val) => { const date = new Date(val); if(isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); return date.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}); };
+
+    const dd = (val) => {
+      const date = new Date(val);
+      if (isNaN(date.getTime())) return "Unknown";
+
+      const now = new Date();
+      if (getDateKey(date) === getDateKey(now)) {
+        return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
     const realIdx = currentHistory.indexOf(i);
-    return `<div class="log-entry" style="display: flex; justify-content: space-between; align-items: flex-start;">
-      <div><strong>${th}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${dd(i.timestamp)}</small></div>
-      <button class="btn-small" style="padding: 2px 5px; color: #ff0000; border-color: rgba(255,0,0,0.3);" data-index="${realIdx}" data-action="delete-history">X</button>
-    </div>`;
-  }).join('');
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.style.display = 'flex';
+    entry.style.justifyContent = 'space-between';
+    entry.style.alignItems = 'flex-start';
+
+    const left = document.createElement('div');
+
+    const strong = document.createElement('strong');
+
+    if (i.url) {
+      const a = document.createElement('a');
+      a.href = i.url;
+      a.target = '_blank';
+      a.style.color = 'var(--green)';
+      a.style.textDecoration = 'none';
+      a.style.borderBottom = '1px dashed var(--green)';
+      a.textContent = dn;
+      strong.appendChild(a);
+    } else {
+      strong.textContent = dn;
+    }
+
+    const timeText = document.createTextNode(`: ${i.timeStr}`);
+
+    const br = document.createElement('br');
+
+    const small = document.createElement('small');
+    small.style.opacity = '0.6';
+    small.textContent = dd(i.timestamp);
+
+    left.appendChild(strong);
+    left.appendChild(timeText);
+    left.appendChild(br);
+    left.appendChild(small);
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-small';
+    btn.textContent = 'X';
+    btn.style.padding = '2px 5px';
+    btn.style.color = '#ff0000';
+    btn.style.borderColor = 'rgba(255,0,0,0.3)';
+    btn.dataset.index = realIdx;
+    btn.dataset.action = 'delete-history';
+
+    entry.appendChild(left);
+    entry.appendChild(btn);
+
+    l.appendChild(entry);
+  });
 }
 
 document.getElementById('history-search').addEventListener('input', filterHistory);

@@ -81,17 +81,22 @@ function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+Strin
 let detectedDetails = null;
 let detectionRetries = 0;
 
-function updateProblemInput(details) {
-  if (!details) return false;
-  detectedDetails = details;
+function updateProblemInput(data) {
+  if (!data) return false;
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
-  if (el && !el.value) {
-    el.value = (details.number ? details.number + ". " : "") + details.name;
-    if (statusEl) statusEl.style.display = 'block';
-    return true;
+  if (!el || el.value) return false;
+
+  if (typeof data === 'string') {
+    el.value = data;
+    detectedDetails = { number: "", name: data, url: "" };
+  } else {
+    detectedDetails = data;
+    el.value = (data.number ? data.number + ". " : "") + data.name;
   }
-  return false;
+  
+  if (statusEl) statusEl.style.display = 'block';
+  return true;
 }
 
 async function requestLeetCodeTitle() {
@@ -101,9 +106,22 @@ async function requestLeetCodeTitle() {
     const tab = tabs[0];
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
 
-    api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, (response) => {
+    // Try message first
+    api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, async (response) => {
       if (api.runtime.lastError || !response) {
-        if (detectionRetries < 4) { detectionRetries++; setTimeout(requestLeetCodeTitle, 500); }
+        // Fallback 1: Try force-injecting content.js (especially for Firefox)
+        if (api.scripting) {
+          try {
+            await api.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+            // Retry once after injection
+            setTimeout(requestLeetCodeTitle, 300);
+          } catch(e) { /* Injection failed */ }
+        }
+        
+        // Fallback 2: Use Tab Title if injection/message failed
+        let title = tab.title;
+        if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
+        updateProblemInput(title);
       } else {
         updateProblemInput(response);
       }
@@ -171,18 +189,10 @@ document.getElementById('add-problem').addEventListener('click', async () => {
     let finalName = nameInput;
     let finalNumber = detectedDetails ? detectedDetails.number : "";
     let finalUrl = detectedDetails ? detectedDetails.url : "";
-
-    // If user manually typed something different, don't use detected details
-    if (detectedDetails && nameInput.indexOf(detectedDetails.name) === -1) {
-      finalNumber = ""; finalUrl = "";
-    }
-
+    if (detectedDetails && nameInput.indexOf(detectedDetails.name) === -1) { finalNumber = ""; finalUrl = ""; }
     problems.push({ name: finalName, number: finalNumber, url: finalUrl, elapsed: 0, isRunning: false, startTime: 0 });
-    nEl.value = '';
-    const statusEl = document.getElementById('detection-status');
-    if (statusEl) statusEl.style.display = 'none';
-    detectedDetails = null;
-    await saveProblems(); renderProblems();
+    nEl.value = ''; const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
+    detectedDetails = null; await saveProblems(); renderProblems();
   }
 });
 
@@ -197,10 +207,7 @@ document.getElementById('problems-container').addEventListener('click', async (e
 });
 
 // --- Listeners ---
-api.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'leetcode_details') updateProblemInput(msg.details);
-});
-
+api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details') updateProblemInput(msg.details); });
 api.commands?.onCommand.addListener((cmd) => {
   if (cmd === 'toggle-timer' && problems.length > 0) {
     const p = problems[0]; if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
@@ -211,14 +218,7 @@ api.commands?.onCommand.addListener((cmd) => {
 // --- History & CSV ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ 
-    name: prob.name, 
-    number: prob.number, 
-    url: prob.url,
-    timeStr: formatTime(elapsed, true), 
-    elapsedMs: elapsed, 
-    timestamp: Date.now() 
-  });
+  h.unshift({ name: prob.name, number: prob.number, url: prob.url, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
   await activeStorage.set({ leetcode_history: h });
 }
 
@@ -252,7 +252,13 @@ async function renderStats() {
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
   const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].sort((a,b) => b.localeCompare(a));
-  let streak = 0; if (days.length > 0) { let c = new Date(); c.setHours(0,0,0,0); if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) { if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1); for (let day of days) { if (day === getDateKey(c)) { streak++; c.setDate(c.getDate()-1); } else break; } } }
+  let streak = 0; if (days.length > 0) {
+    let c = new Date(); c.setHours(0,0,0,0);
+    if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) {
+      if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1);
+      for (let day of days) { if (day === getDateKey(c)) { streak++; c.setDate(c.getDate()-1); } else break; }
+    }
+  }
   document.getElementById('current-streak').textContent = streak;
 
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }

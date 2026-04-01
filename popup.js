@@ -62,6 +62,19 @@ function formatTime(ms, isStopwatch = false) {
   return display;
 }
 
+// Helper to parse "00:00:00.00" back to Ms for legacy logs
+function parseTimeToMs(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') return 0;
+  const parts = timeStr.split(':');
+  if (parts.length < 3) return 0;
+  const hours = parseInt(parts[0]) || 0;
+  const minutes = parseInt(parts[1]) || 0;
+  const secondsParts = parts[2].split('.');
+  const seconds = parseInt(secondsParts[0]) || 0;
+  const msPart = secondsParts[1] ? parseInt(secondsParts[1].padEnd(2, '0')) : 0;
+  return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + (msPart * 10);
+}
+
 // --- Timer Logic (Countdown) ---
 let timerInterval;
 let timerTargetTime = 0;
@@ -257,7 +270,6 @@ setInterval(() => {
 async function logToHistory(name, elapsed) {
   const data = await activeStorage.get('leetcode_history');
   const logs = data.leetcode_history || [];
-  // Store both the readable time and the raw milliseconds/timestamp for better stats
   logs.unshift({
     name,
     timeStr: formatTime(elapsed, true),
@@ -277,7 +289,7 @@ async function renderHistory() {
     list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
     return;
   }
-  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.timeStr || l.time}<br><small style="opacity: 0.6;">${new Date(l.timestamp).toLocaleString()}</small></div>`).join('');
+  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.timeStr || l.time}<br><small style="opacity: 0.6;">${new Date(l.timestamp || Date.now()).toLocaleString()}</small></div>`).join('');
 }
 
 let myChart;
@@ -285,9 +297,12 @@ async function renderStats() {
   const data = await activeStorage.get('leetcode_history');
   const logs = data.leetcode_history || [];
   
-  // Calculate total stats
+  // Calculate total stats (with legacy parsing)
   const totalProblems = logs.length;
-  const totalMs = logs.reduce((sum, l) => sum + (l.elapsedMs || 0), 0);
+  const totalMs = logs.reduce((sum, l) => {
+    const ms = l.elapsedMs || parseTimeToMs(l.timeStr || l.time);
+    return sum + ms;
+  }, 0);
   const totalMins = Math.round(totalMs / 60000);
   
   document.getElementById('total-problems').textContent = totalProblems;
@@ -302,19 +317,26 @@ async function renderStats() {
   }
   
   const dailyMins = last7Days.map(dateStr => {
-    const dayLogs = logs.filter(l => new Date(l.timestamp).toLocaleDateString() === dateStr);
-    const dayMs = dayLogs.reduce((sum, l) => sum + (l.elapsedMs || 0), 0);
+    const dayLogs = logs.filter(l => {
+      const logDate = l.timestamp ? new Date(l.timestamp).toLocaleDateString() : l.dateStr;
+      return logDate === dateStr;
+    });
+    const dayMs = dayLogs.reduce((sum, l) => {
+      return sum + (l.elapsedMs || parseTimeToMs(l.timeStr || l.time));
+    }, 0);
     return Math.round(dayMs / 60000);
   });
   
   // Render Chart.js
-  const ctx = document.getElementById('progressChart').getContext('2d');
+  const canvas = document.getElementById('progressChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
   if (myChart) myChart.destroy();
   
   myChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: last7Days.map(d => d.split('/')[0] + '/' + d.split('/')[1]), // Short date format
+      labels: last7Days.map(d => d.split('/')[0] + '/' + d.split('/')[1]),
       datasets: [{
         label: 'Minutes Spent',
         data: dailyMins,
@@ -343,6 +365,7 @@ document.getElementById('clear-log').addEventListener('click', async () => {
   if (confirm('Clear all history?')) {
     await activeStorage.set({ leetcode_history: [] });
     await renderHistory();
+    if (document.getElementById('stats').classList.contains('active')) renderStats();
   }
 });
 

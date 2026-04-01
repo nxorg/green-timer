@@ -10,11 +10,12 @@
   <div class="container">
     <div class="tabs">
       <button class="tab-btn active" data-tab="stopwatch">Problems</button>
+      <button class="tab-btn" data-tab="standalone-sw">Stopwatch</button>
       <button class="tab-btn" data-tab="timer">Timer</button>
       <button class="tab-btn" data-tab="log">History</button>
     </div>
 
-    <!-- Problems (Stopwatch List) Section -->
+    <!-- Problems (Multi-Stopwatch) Section -->
     <div id="stopwatch" class="tab-content active">
       <div class="input-row">
         <input type="text" id="new-problem-name" placeholder="Problem ID/Name">
@@ -25,7 +26,17 @@
       </div>
     </div>
 
-    <!-- Timer Section -->
+    <!-- Standalone Stopwatch Section -->
+    <div id="standalone-sw" class="tab-content">
+      <div class="display" id="sw-display">00:00:00.00</div>
+      <div class="controls">
+        <button id="sw-start">Start</button>
+        <button id="sw-pause">Pause</button>
+        <button id="sw-reset">Reset</button>
+      </div>
+    </div>
+
+    <!-- Timer (Countdown) Section -->
     <div id="timer" class="tab-content">
       <div class="display" id="timer-display">00:00:00</div>
       <div class="input-row">
@@ -43,7 +54,7 @@
       </div>
     </div>
 
-    <!-- Log Section -->
+    <!-- History Section -->
     <div id="log" class="tab-content">
       <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff00; padding: 5px;">
         <!-- History logs will appear here -->

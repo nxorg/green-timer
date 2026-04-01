@@ -31,7 +31,7 @@ function formatTime(ms, isStopwatch = false) {
   return display;
 }
 
-// Timer Logic (Simple Countdown)
+// Timer Logic (Countdown)
 let timerInterval;
 let timerTimeLeft = 0;
 const timerDisplay = document.getElementById('timer-display');
@@ -81,9 +81,43 @@ document.querySelectorAll('.preset').forEach(btn => {
   });
 });
 
+// Standalone Stopwatch Logic
+let swElapsedTime = parseInt(localStorage.getItem('sw_elapsed') || '0');
+let swStartTime = 0;
+let swInterval = null;
+const swDisplay = document.getElementById('sw-display');
+
+function updateSwDisplay() {
+  swDisplay.textContent = formatTime(swElapsedTime, true);
+}
+
+document.getElementById('sw-start').addEventListener('click', () => {
+  if (swInterval) return;
+  swStartTime = Date.now() - swElapsedTime;
+  swInterval = setInterval(() => {
+    swElapsedTime = Date.now() - swStartTime;
+    updateSwDisplay();
+    localStorage.setItem('sw_elapsed', swElapsedTime);
+  }, 10);
+});
+
+document.getElementById('sw-pause').addEventListener('click', () => {
+  clearInterval(swInterval);
+  swInterval = null;
+});
+
+document.getElementById('sw-reset').addEventListener('click', () => {
+  clearInterval(swInterval);
+  swInterval = null;
+  swElapsedTime = 0;
+  localStorage.setItem('sw_elapsed', '0');
+  updateSwDisplay();
+});
+
+updateSwDisplay();
+
 // Problems (Multi-Stopwatch) Logic
 let problems = JSON.parse(localStorage.getItem('leetcode_problems') || '[]');
-let problemsInterval;
 
 function saveProblems() {
   localStorage.setItem('leetcode_problems', JSON.stringify(problems));
@@ -155,7 +189,7 @@ document.getElementById('problems-container').addEventListener('click', (e) => {
   renderProblems();
 });
 
-// Update running timers every 100ms
+// Update multi-problem timers
 setInterval(() => {
   let changed = false;
   problems.forEach((p, index) => {

@@ -4,27 +4,21 @@
  * GPLv3 License
  */
 
-// Cross-browser API wrapper
 const api = (typeof browser !== 'undefined') ? browser : chrome;
 const storageAPI = api.storage ? api.storage.sync : null;
 
 const activeStorage = {
   get: (keys) => new Promise(res => {
-    if (storageAPI) {
-      storageAPI.get(keys, d => res(d || {}));
-    } else {
+    if (storageAPI) { storageAPI.get(keys, d => res(d || {})); }
+    else {
       const r = {}; const ka = Array.isArray(keys) ? keys : [keys];
       ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} });
       res(r);
     }
   }),
   set: (obj) => new Promise(res => {
-    if (storageAPI) {
-      storageAPI.set(obj, () => res());
-    } else {
-      for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k]));
-      res();
-    }
+    if (storageAPI) { storageAPI.set(obj, () => res()); }
+    else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); }
   })
 };
 
@@ -84,12 +78,16 @@ function parseTimeToMs(ts) {
 function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
 
 // --- Auto-fill Detection ---
+let detectedDetails = null;
 let detectionRetries = 0;
-function updateProblemInput(title) {
+
+function updateProblemInput(details) {
+  if (!details) return false;
+  detectedDetails = details;
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
-  if (el && title && !el.value) {
-    el.value = title;
+  if (el && !el.value) {
+    el.value = (details.number ? details.number + ". " : "") + details.name;
     if (statusEl) statusEl.style.display = 'block';
     return true;
   }
@@ -103,20 +101,11 @@ async function requestLeetCodeTitle() {
     const tab = tabs[0];
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
 
-    api.tabs.sendMessage(tab.id, { type: 'get_leetcode_title' }, (response) => {
-      if (api.runtime.lastError || !response || !response.title) {
-        // Fallback to Tab Title
-        let title = tab.title;
-        if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
-        const success = updateProblemInput(title);
-        
-        // If still no title and it's early, retry in 500ms
-        if (!success && detectionRetries < 4) {
-          detectionRetries++;
-          setTimeout(requestLeetCodeTitle, 500);
-        }
+    api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, (response) => {
+      if (api.runtime.lastError || !response) {
+        if (detectionRetries < 4) { detectionRetries++; setTimeout(requestLeetCodeTitle, 500); }
       } else {
-        updateProblemInput(response.title);
+        updateProblemInput(response);
       }
     });
   } catch (e) { console.error("Detection failed", e); }
@@ -168,7 +157,7 @@ function renderProblems() {
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
-    r.innerHTML = `<div class="problem-header"><span>${p.name}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
+    r.innerHTML = `<div class="problem-header"><span>${p.number ? p.number + ". " : ""}${p.name}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
     <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
     <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
     <button class="btn-small" data-index="${i}" data-action="reset">RESET</button><button class="btn-small" data-index="${i}" data-action="finish">FINISH</button></div>`;
@@ -177,12 +166,22 @@ function renderProblems() {
 }
 
 document.getElementById('add-problem').addEventListener('click', async () => {
-  const nEl = document.getElementById('new-problem-name'); const name = nEl.value.trim();
-  if (name) {
-    problems.push({ name, elapsed: 0, isRunning: false, startTime: 0 });
+  const nEl = document.getElementById('new-problem-name'); const nameInput = nEl.value.trim();
+  if (nameInput) {
+    let finalName = nameInput;
+    let finalNumber = detectedDetails ? detectedDetails.number : "";
+    let finalUrl = detectedDetails ? detectedDetails.url : "";
+
+    // If user manually typed something different, don't use detected details
+    if (detectedDetails && nameInput.indexOf(detectedDetails.name) === -1) {
+      finalNumber = ""; finalUrl = "";
+    }
+
+    problems.push({ name: finalName, number: finalNumber, url: finalUrl, elapsed: 0, isRunning: false, startTime: 0 });
     nEl.value = '';
     const statusEl = document.getElementById('detection-status');
     if (statusEl) statusEl.style.display = 'none';
+    detectedDetails = null;
     await saveProblems(); renderProblems();
   }
 });
@@ -193,13 +192,13 @@ document.getElementById('problems-container').addEventListener('click', async (e
   if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } }
   else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; }
   else if (action === 'delete') { problems.splice(i, 1); }
-  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p.name, f); problems.splice(i, 1); }
+  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); }
   await saveProblems(); renderProblems();
 });
 
 // --- Listeners ---
 api.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'leetcode_title') updateProblemInput(msg.title);
+  if (msg.type === 'leetcode_details') updateProblemInput(msg.details);
 });
 
 api.commands?.onCommand.addListener((cmd) => {
@@ -209,10 +208,17 @@ api.commands?.onCommand.addListener((cmd) => {
   }
 });
 
-// --- History & Stats ---
-async function logToHistory(name, elapsed) {
+// --- History & CSV ---
+async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ name, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
+  h.unshift({ 
+    name: prob.name, 
+    number: prob.number, 
+    url: prob.url,
+    timeStr: formatTime(elapsed, true), 
+    elapsedMs: elapsed, 
+    timestamp: Date.now() 
+  });
   await activeStorage.set({ leetcode_history: h });
 }
 
@@ -220,14 +226,18 @@ async function renderHistory() {
   const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (!l) return;
   if (h.length === 0) { l.innerHTML = '<div style="opacity: 0.5;">No history.</div>'; return; }
-  l.innerHTML = h.map(i => `<div class="log-entry"><strong>${i.name}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${new Date(i.timestamp).toLocaleString()}</small></div>`).join('');
+  l.innerHTML = h.map(i => {
+    const displayName = (i.number ? i.number + ". " : "") + i.name;
+    const titleHtml = i.url ? `<a href="${i.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${displayName}</a>` : displayName;
+    return `<div class="log-entry"><strong>${titleHtml}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${new Date(i.timestamp).toLocaleString()}</small></div>`;
+  }).join('');
 }
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (h.length === 0) return;
-  let csv = 'Name,Time,Timestamp\n';
-  h.forEach(i => { csv += `"${i.name}","${i.timeStr}","${new Date(i.timestamp).toLocaleString()}"\n`; });
+  let csv = 'Number,Name,Time,URL,Timestamp\n';
+  h.forEach(i => { csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${new Date(i.timestamp).toLocaleString()}"\n`; });
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_history.csv'; a.click();
@@ -258,7 +268,7 @@ async function renderStats() {
     activeS.style.display = 'flex'; const ctxA = document.getElementById('activeProblemsChart');
     if(ctxA) {
       if (aChart) aChart.destroy();
-      aChart = new Chart(ctxA, { type:'bar', data:{ labels:curr.map(p => p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:'rgba(0,255,0,0.4)', borderColor:'#00ff00', borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:'#0f0', font:{size:9}}}, y:{ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } });
+      aChart = new Chart(ctxA, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:'rgba(0,255,0,0.4)', borderColor:'#00ff00', borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:'#0f0', font:{size:9}}}, y:{ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } });
     }
   } else if (activeS) activeS.style.display = 'none';
 

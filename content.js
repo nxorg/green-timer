@@ -1,49 +1,42 @@
-// Function to find the title on the page using multiple selectors
-function findTitle() {
-  // Try modern LeetCode selectors first
-  const selectors = [
-    'div[data-cy="question-title"] span',
-    '.text-title-large',
-    '.css-v3d350',
-    'h4',
-    '.question-title'
-  ];
+// Enhanced detection for Number, Name, and URL
+function getLeetCodeDetails() {
+  const titleEl = document.querySelector('div[data-cy="question-title"] span') || 
+                  document.querySelector('.text-title-large') || 
+                  document.querySelector('h4');
+  
+  if (!titleEl) return null;
 
-  for (let selector of selectors) {
-    const el = document.querySelector(selector);
-    if (el && el.innerText.trim()) {
-      return el.innerText.trim();
-    }
+  const fullTitle = titleEl.innerText.trim();
+  let number = "";
+  let name = fullTitle;
+
+  // Split "1. Two Sum" into "1" and "Two Sum"
+  if (fullTitle.includes('. ')) {
+    const parts = fullTitle.split('. ');
+    number = parts[0];
+    name = parts.slice(1).join('. ');
   }
 
-  // Fallback: Use the document title (remove " - LeetCode")
-  let docTitle = document.title;
-  if (docTitle && docTitle.includes(' - LeetCode')) {
-    return docTitle.split(' - LeetCode')[0].trim();
-  }
-
-  return null;
+  return {
+    number: number,
+    name: name,
+    url: window.location.href.split('?')[0].split('#')[0] // Clean URL
+  };
 }
 
-// Broadcast title to popup if it's already open
-function broadcastTitle() {
-  const title = findTitle();
-  if (title) {
-    chrome.runtime.sendMessage({ type: 'leetcode_title', title }).catch(() => {
-      // Ignore errors when popup is closed
-    });
+function broadcastDetails() {
+  const details = getLeetCodeDetails();
+  if (details) {
+    chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
   }
 }
 
-// Listen for direct requests from the popup
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'get_leetcode_title') {
-    const title = findTitle();
-    sendResponse({ title });
+  if (msg.type === 'get_leetcode_details') {
+    sendResponse(getLeetCodeDetails());
   }
   return true;
 });
 
-// Check frequently as users navigate within LeetCode
-setInterval(broadcastTitle, 2000);
-broadcastTitle();
+setInterval(broadcastDetails, 2000);
+broadcastDetails();

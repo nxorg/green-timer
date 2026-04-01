@@ -1,26 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Green Timer & Stopwatch",
-  "version": "1.6",
+  "version": "1.7",
   "description": "A sleek #00ff00 themed timer and stopwatch extension with LeetCode auto-detection and stats.",
   "permissions": ["notifications", "alarms", "storage", "activeTab"],
   "host_permissions": ["*://*.leetcode.com/*"],
   "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": ["*://*.leetcode.com/problems/*"],
-      "js": ["content.js"]
-    }
-  ],
-  "commands": {
-    "toggle-timer": {
-      "suggested_key": {
-        "default": "Ctrl+Shift+S"
-      },
-      "description": "Toggle the first active problem timer"
-    }
+    "scripts": ["background.js"]
   },
   "browser_specific_settings": {
     "gecko": {

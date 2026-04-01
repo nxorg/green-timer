@@ -70,7 +70,7 @@ function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+Strin
 function updateProblemInput(title) {
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
-  if (el && title) {
+  if (el && title && !el.value) {
     el.value = title;
     if (statusEl) statusEl.style.display = 'block';
   }
@@ -78,13 +78,22 @@ function updateProblemInput(title) {
 
 async function requestLeetCodeTitle() {
   if (!chrome.tabs) return;
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab && tab.url && tab.url.includes('leetcode.com/problems/')) {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
+
+    // 1. Try sending message to content script
     chrome.tabs.sendMessage(tab.id, { type: 'get_leetcode_title' }, (response) => {
-      if (chrome.runtime.lastError) return;
+      if (chrome.runtime.lastError) {
+        // 2. Fallback: If content script didn't load yet, use Tab Title
+        let title = tab.title;
+        if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
+        updateProblemInput(title);
+        return;
+      }
       if (response && response.title) updateProblemInput(response.title);
     });
-  }
+  } catch (e) { console.error("Detection failed", e); }
 }
 
 // --- Logic ---
@@ -110,7 +119,7 @@ function startTimerUI() {
 
 document.getElementById('timer-start').addEventListener('click', async () => {
   const mins = parseInt(document.getElementById('timer-input').value) || 0;
-  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); chrome.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
+  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(chrome.alarms) chrome.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
 });
 
 document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); if(chrome.alarms) chrome.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
@@ -165,13 +174,6 @@ document.getElementById('problems-container').addEventListener('click', async (e
 // --- Listeners ---
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'leetcode_title') updateProblemInput(msg.title);
-});
-
-chrome.commands?.onCommand.addListener((cmd) => {
-  if (cmd === 'toggle-timer' && problems.length > 0) {
-    const p = problems[0]; if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
-    saveProblems(); renderProblems();
-  }
 });
 
 // --- History & Stats ---

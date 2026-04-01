@@ -1,12 +1,11 @@
-// Enhanced detection for Number, Name, and URL
+// Efficient LeetCode Detection using MutationObserver
 function getLeetCodeDetails() {
   const selectors = [
     'div[data-cy="question-title"] span',
     '.text-title-large',
     '.css-v3d350',
     'h4',
-    '.question-title',
-    '#question-title'
+    '.question-title'
   ];
 
   let titleEl = null;
@@ -21,13 +20,11 @@ function getLeetCodeDetails() {
   let number = "";
   let name = fullTitle;
 
-  // Split "1. Two Sum" into "1" and "Two Sum"
   if (fullTitle.includes('. ')) {
     const parts = fullTitle.split('. ');
     number = parts[0];
     name = parts.slice(1).join('. ');
   } else if (/^\d+\./.test(fullTitle)) {
-    // Handle cases like "1.Two Sum"
     const dotIndex = fullTitle.indexOf('.');
     number = fullTitle.substring(0, dotIndex);
     name = fullTitle.substring(dotIndex + 1).trim();
@@ -40,22 +37,30 @@ function getLeetCodeDetails() {
   };
 }
 
-// Listen for direct requests
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'get_leetcode_details') {
-    const details = getLeetCodeDetails();
-    sendResponse(details);
-  }
-  return true;
-});
-
-// Broadcast title to popup
-function broadcastDetails() {
+function broadcast() {
   const details = getLeetCodeDetails();
   if (details) {
     chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
   }
 }
 
-setInterval(broadcastDetails, 2000);
-broadcastDetails();
+// Optimization: Use Observer instead of Interval
+const observer = new MutationObserver(() => {
+  broadcast();
+});
+
+// Start observing the main content area
+const config = { childList: true, subtree: true };
+const targetNode = document.body;
+if (targetNode) observer.observe(targetNode, config);
+
+// Initial broadcast
+broadcast();
+
+// Direct listener for popup requests
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'get_leetcode_details') {
+    sendResponse(getLeetCodeDetails());
+  }
+  return true;
+});

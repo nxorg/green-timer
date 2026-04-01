@@ -66,6 +66,13 @@ body.light-mode #matrix-canvas {
   border: 1px solid var(--border-color);
 }
 
+.logo-icon {
+  width: 14px;
+  height: 14px;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
 .logo {
   font-weight: 700;
   font-size: 1em;

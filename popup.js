@@ -7,7 +7,7 @@
 const storageAPI = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' && browser.storage ? browser.storage.sync : null);
 
 const activeStorage = {
-  get: (keys) => new Promise(res => { if (storageAPI) storageAPI.get(keys, d => res(data || d)); else { const r = {}; const ka = Array.isArray(keys) ? keys : [keys]; ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} }); res(r); } }),
+  get: (keys) => new Promise(res => { if (storageAPI) storageAPI.get(keys, d => res(d || {})); else { const r = {}; const ka = Array.isArray(keys) ? keys : [keys]; ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} }); res(r); } }),
   set: (obj) => new Promise(res => { if (storageAPI) storageAPI.set(obj, () => res()); else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } })
 };
 
@@ -66,8 +66,46 @@ function parseTimeToMs(ts) {
 }
 function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
 
-// --- Core Logic ---
+// --- Logic ---
+let timerInterval, swInterval;
+let timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0;
 let problems = [];
+
+async function initTimers() {
+  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running']);
+  if (data.timer_target && data.timer_target > Date.now()) { timerTargetTime = data.timer_target; startTimerUI(); }
+  swElapsedTime = data.sw_elapsed || 0;
+  if (data.sw_is_running) { swStartTime = data.sw_start_time || Date.now(); startStandaloneSwUI(); } else { updateSwDisplay(); }
+}
+
+function startTimerUI() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const tl = timerTargetTime - Date.now();
+    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00'; }
+    else { document.getElementById('timer-display').textContent = formatTime(tl); }
+  }, 1000);
+}
+
+document.getElementById('timer-start').addEventListener('click', async () => {
+  const mins = parseInt(document.getElementById('timer-input').value) || 0;
+  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); chrome.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
+});
+
+document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); chrome.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
+document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); chrome.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00'; });
+
+function updateSwDisplay() { const el = document.getElementById('sw-display'); if (el) el.textContent = formatTime(swElapsedTime, true); }
+function startStandaloneSwUI() { if (swInterval) clearInterval(swInterval); swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); }
+document.getElementById('sw-start').addEventListener('click', async () => { if (swInterval) return; swStartTime = Date.now() - swElapsedTime; await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime }); startStandaloneSwUI(); });
+document.getElementById('sw-pause').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
+document.getElementById('sw-reset').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
+
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => { document.getElementById('timer-input').value = btn.dataset.time; });
+});
+
+// --- Problems ---
 async function loadProblems() { const d = await activeStorage.get('leetcode_problems'); problems = d.leetcode_problems || []; renderProblems(); }
 async function saveProblems() { await activeStorage.set({ leetcode_problems: problems }); }
 
@@ -76,7 +114,7 @@ function renderProblems() {
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
-    r.innerHTML = `<div class="problem-header"><span>[${p.diff || '?'}] ${p.name}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
+    r.innerHTML = `<div class="problem-header"><span>${p.name}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
     <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
     <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
     <button class="btn-small" data-index="${i}" data-action="reset">RESET</button><button class="btn-small" data-index="${i}" data-action="finish">FINISH</button></div>`;
@@ -85,99 +123,82 @@ function renderProblems() {
 }
 
 document.getElementById('add-problem').addEventListener('click', async () => {
-  const nEl = document.getElementById('new-problem-name'); const dEl = document.getElementById('diff-select');
-  const name = nEl.value.trim(); const diff = dEl.value;
-  if (name) { problems.push({ name, diff, elapsed: 0, isRunning: false, startTime: 0 }); nEl.value = ''; await saveProblems(); renderProblems(); }
+  const nEl = document.getElementById('new-problem-name'); const name = nEl.value.trim();
+  if (name) { problems.push({ name, elapsed: 0, isRunning: false, startTime: 0 }); nEl.value = ''; await saveProblems(); renderProblems(); }
 });
 
 document.getElementById('problems-container').addEventListener('click', async (e) => {
-  const a = e.target.dataset.action; const i = parseInt(e.target.dataset.index); if (a === undefined) return;
+  const a = e.target.dataset.action; const i = parseInt(e.target.dataset.index); if (a === undefined || isNaN(i)) return;
   const p = problems[i];
   if (a === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } }
   else if (a === 'reset') { p.elapsed = 0; p.isRunning = false; }
   else if (a === 'delete') { problems.splice(i, 1); }
-  else if (a === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p.name, p.diff, f); problems.splice(i, 1); }
+  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p.name, f); problems.splice(i, 1); }
   await saveProblems(); renderProblems();
 });
 
-// --- Auto-fill from Content Script ---
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'leetcode_title') {
-    const el = document.getElementById('new-problem-name');
-    if (el && !el.value) el.value = msg.title;
-  }
-});
-
-// --- Shortcuts ---
+// --- Auto-fill & Shortcuts ---
+chrome.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_title') { const el = document.getElementById('new-problem-name'); if (el && !el.value) el.value = msg.title; } });
 chrome.commands?.onCommand.addListener((cmd) => {
   if (cmd === 'toggle-timer' && problems.length > 0) {
-    const p = problems[0];
-    if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; }
-    else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
+    const p = problems[0]; if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
     saveProblems(); renderProblems();
   }
 });
 
 // --- History & CSV ---
-async function logToHistory(name, diff, elapsed) {
+async function logToHistory(name, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ name, diff, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
+  h.unshift({ name, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
   await activeStorage.set({ leetcode_history: h });
 }
 
 async function renderHistory() {
   const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (h.length === 0) { l.innerHTML = '<div style="opacity: 0.5;">No history.</div>'; return; }
-  l.innerHTML = h.map(i => `<div class="log-entry"><strong>[${i.diff}] ${i.name}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${new Date(i.timestamp).toLocaleString()}</small></div>`).join('');
+  l.innerHTML = h.map(i => `<div class="log-entry"><strong>${i.name}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${new Date(i.timestamp).toLocaleString()}</small></div>`).join('');
 }
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (h.length === 0) return;
-  let csv = 'Name,Difficulty,Time,Timestamp\n';
-  h.forEach(i => { csv += `"${i.name}","${i.diff}","${i.timeStr}","${new Date(i.timestamp).toLocaleString()}"\n`; });
+  let csv = 'Name,Time,Timestamp\n';
+  h.forEach(i => { csv += `"${i.name}","${i.timeStr}","${new Date(i.timestamp).toLocaleString()}"\n`; });
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_history.csv'; a.click();
 });
 
-// --- Stats Charts ---
-let hChart, aChart, hoChart, dChart;
+// --- Stats ---
+let hChart, aChart, hoChart;
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
-  const logs = d.leetcode_history || []; const current = d.leetcode_problems || [];
-  
+  const logs = d.leetcode_history || []; const curr = d.leetcode_problems || [];
   const totalMs = logs.reduce((s, l) => s + (l.elapsedMs || parseTimeToMs(l.timeStr)), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
-  // Streak
   const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].sort((a,b) => b.localeCompare(a));
-  let streak = 0; if (days.length > 0) { let c = new Date(); c.setHours(0,0,0,0); if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) { if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1); for (let day of days) { if (day === getDateKey(c)) { streak++; c.setDate(c.getDate()-1); } else break; } } }
+  let streak = 0; if (days.length > 0) { let c = new Date(); c.setHours(0,0,0,0); if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) { if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1); for (let day of days) { if (day === getDateKey(check)) { streak++; check.setDate(check.getDate()-1); } else break; } } }
   document.getElementById('current-streak').textContent = streak;
 
-  // Chart 1: 7-Day Line
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
   const dailyMins = l7k.map(k => { const ms = logs.filter(l => getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr)), 0); return parseFloat((ms/60000).toFixed(2)); });
   if (hChart) hChart.destroy(); hChart = new Chart(document.getElementById('progressChart'), { type:'line', data:{ labels:l7l, datasets:[{ data:dailyMins, borderColor:'#0f0', backgroundColor:'rgba(0,255,0,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } });
 
-  // Chart 2: Difficulty Distribution
-  const diffs = { 'Easy': 0, 'Medium': 0, 'Hard': 0 }; logs.forEach(l => { if(diffs[l.diff]!==undefined) diffs[l.diff]++; });
-  if (dChart) dChart.destroy(); dChart = new Chart(document.getElementById('diffChart'), { type:'doughnut', data:{ labels:Object.keys(diffs), datasets:[{ data:Object.values(diffs), backgroundColor:['#00ff00', '#ffaa00', '#ff0000'], borderWidth:0 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#0f0', font:{size:10}} } } } });
+  const activeS = document.getElementById('active-chart-section');
+  if (curr.length > 0) {
+    activeS.style.display = 'flex'; if (aChart) aChart.destroy();
+    aChart = new Chart(document.getElementById('activeProblemsChart'), { type:'bar', data:{ labels:curr.map(p => p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:'rgba(0,255,0,0.4)', borderColor:'#00ff00', borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:'#0f0', font:{size:9}}}, y:{ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } });
+  } else activeS.style.display = 'none';
 
-  // Chart 3: Hourly
   const hrData = Array(24).fill(0); logs.forEach(l => { hrData[new Date(l.timestamp).getHours()]++; });
   if (hoChart) hoChart.destroy(); hoChart = new Chart(document.getElementById('hourlyActivityChart'), { type:'bar', data:{ labels:Array.from({length:24}, (_,i)=>i), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } });
 }
 
-// --- Initial Init ---
-new MatrixRain();
-loadProblems();
-initTimers(); // From earlier logic
+document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+
+// --- Init ---
+new MatrixRain(); loadProblems(); initTimers();
 setInterval(() => { problems.forEach((p,i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now()-p.startTime, true); } }); }, 100);
-async function initTimers() {
-  const d = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running']);
-  if (d.timer_target && d.timer_target > Date.now()) { startTimerUI(d.timer_target); }
-  if (d.sw_is_running) { startSwUI(d.sw_start_time); }
-}
-// (Include simplified Timer/SW start functions if needed for the combined file)
+async function init() { try { await renderHistory(); } catch(e){} } init();

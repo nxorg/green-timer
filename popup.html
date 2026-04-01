@@ -27,11 +27,6 @@
     <div id="stopwatch" class="tab-content active">
       <div class="input-row">
         <input type="text" id="new-problem-name" placeholder="Problem ID/Name">
-        <select id="diff-select" style="width: auto; font-size: 0.8em; padding: 5px;">
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
         <button id="add-problem">Add</button>
       </div>
       <div id="problems-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
@@ -57,7 +52,6 @@
       </div>
       <div class="chart-section"><div class="chart-label">7-Day Progress (Mins)</div><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
       <div class="chart-section" id="active-chart-section" style="display: none; margin-top: 10px;"><div class="chart-label">Active (Mins)</div><div class="chart-container"><canvas id="activeProblemsChart"></canvas></div></div>
-      <div class="chart-section" style="margin-top: 10px;"><div class="chart-label">Difficulty Distribution</div><div class="chart-container"><canvas id="diffChart"></canvas></div></div>
       <div class="chart-section" style="margin-top: 10px;"><div class="chart-label">Hourly Activity</div><div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div></div>
     </div>
 

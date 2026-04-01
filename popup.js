@@ -106,19 +106,14 @@ async function requestLeetCodeTitle() {
     const tab = tabs[0];
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
 
-    // Try message first
     api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, async (response) => {
       if (api.runtime.lastError || !response) {
-        // Fallback 1: Try force-injecting content.js (especially for Firefox)
         if (api.scripting) {
           try {
             await api.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
-            // Retry once after injection
             setTimeout(requestLeetCodeTitle, 300);
-          } catch(e) { /* Injection failed */ }
+          } catch(e) {}
         }
-        
-        // Fallback 2: Use Tab Title if injection/message failed
         let title = tab.title;
         if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
         updateProblemInput(title);
@@ -175,7 +170,10 @@ function renderProblems() {
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
-    r.innerHTML = `<div class="problem-header"><span>${p.number ? p.number + ". " : ""}${p.name}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
+    const displayName = (p.number ? p.number + ". " : "") + p.name;
+    const titleHtml = p.url ? `<a href="${p.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${displayName}</a>` : displayName;
+    
+    r.innerHTML = `<div class="problem-header"><span>${titleHtml}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
     <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
     <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
     <button class="btn-small" data-index="${i}" data-action="reset">RESET</button><button class="btn-small" data-index="${i}" data-action="finish">FINISH</button></div>`;
@@ -236,11 +234,14 @@ async function renderHistory() {
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (h.length === 0) return;
-  let csv = 'Number,Name,Time,URL,Timestamp\n';
-  h.forEach(i => { csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${new Date(i.timestamp).toLocaleString()}"\n`; });
+  let csv = 'Number,Name,Time,URL,Date,Timestamp\n';
+  h.forEach(i => {
+    const date = new Date(i.timestamp);
+    csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${date.toLocaleDateString()}","${date.toLocaleString()}"\n`;
+  });
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'leetcode_history.csv'; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = 'leetcode_study_logs.csv'; a.click();
 });
 
 let hChart, aChart, hoChart;

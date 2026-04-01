@@ -189,7 +189,7 @@ function renderLogs() {
   }
   
   logList.innerHTML = logs.map(log => `
-    <div style="border-bottom: 1px solid #00ff0033; padding: 5px 0;">
+    <div class="log-entry">
       <strong>${log.problem}</strong>: ${log.time}<br>
       <small style="opacity: 0.7;">${log.timestamp}</small>
     </div>

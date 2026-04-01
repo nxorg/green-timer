@@ -75,7 +75,6 @@ function parseTimeToMs(timeStr) {
   return (hours * 3600000) + (minutes * 60000) + (seconds * 1000) + (msPart * 10);
 }
 
-// Helper to get a consistent date key (YYYY-MM-DD)
 function getDateKey(dateObj) {
   const d = new Date(dateObj);
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -138,12 +137,6 @@ document.getElementById('timer-reset').addEventListener('click', () => {
   document.getElementById('timer-display').textContent = '00:00:00';
 });
 
-document.querySelectorAll('.preset').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.getElementById('timer-input').value = btn.dataset.time;
-  });
-});
-
 // --- Standalone Stopwatch Logic ---
 let swElapsedTime = 0;
 let swStartTime = 0;
@@ -189,14 +182,13 @@ document.getElementById('sw-pause').addEventListener('click', async () => {
 });
 
 document.getElementById('sw-reset').addEventListener('click', async () => {
-  clearInterval(swInterval);
-  swInterval = null;
+  clearInterval(swInterval); swInterval = null;
   swElapsedTime = 0;
   await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 });
   updateSwDisplay();
 });
 
-// --- Problems (Multi-Stopwatch) Logic ---
+// --- Problems Logic ---
 let problems = [];
 
 async function loadProblems() {
@@ -262,7 +254,85 @@ document.getElementById('problems-container').addEventListener('click', async (e
   renderProblems();
 });
 
-// Update UI for running problems
+// History & Stats Logic
+async function logToHistory(name, elapsed) {
+  const data = await activeStorage.get('leetcode_history');
+  const logs = data.leetcode_history || [];
+  logs.unshift({ name, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
+  await activeStorage.set({ leetcode_history: logs });
+}
+
+async function renderHistory() {
+  const list = document.getElementById('log-list');
+  if (!list) return;
+  const data = await activeStorage.get('leetcode_history');
+  const logs = data.leetcode_history || [];
+  if (logs.length === 0) { list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>'; return; }
+  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.timeStr || l.time}<br><small style="opacity: 0.6;">${new Date(l.timestamp || Date.now()).toLocaleString()}</small></div>`).join('');
+}
+
+let historyChart, activeChart;
+
+async function renderStats() {
+  const data = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
+  const logs = data.leetcode_history || [];
+  const currentProblems = data.leetcode_problems || [];
+  
+  // 1. Summary
+  const totalMs = logs.reduce((sum, l) => sum + (l.elapsedMs || parseTimeToMs(l.timeStr || l.time)), 0);
+  const totalMins = Math.floor(totalMs / 60000);
+  const totalSecs = Math.floor((totalMs % 60000) / 1000);
+  document.getElementById('total-problems').textContent = logs.length;
+  document.getElementById('total-time-spent').textContent = totalMins > 0 ? `${totalMins}m ${totalSecs}s` : `${totalSecs}s`;
+
+  // 2. 7-Day Chart
+  const last7Days = [];
+  const last7Keys = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    last7Days.push(String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'));
+    last7Keys.push(getDateKey(d));
+  }
+  const dailyMins = last7Keys.map(key => {
+    const dayMs = logs.filter(l => getDateKey(l.timestamp || new Date()) === key).reduce((sum, l) => sum + (l.elapsedMs || parseTimeToMs(l.timeStr || l.time)), 0);
+    return parseFloat((dayMs / 60000).toFixed(2));
+  });
+
+  const ctxH = document.getElementById('progressChart').getContext('2d');
+  if (historyChart) historyChart.destroy();
+  historyChart = new Chart(ctxH, {
+    type: 'line',
+    data: { labels: last7Days, datasets: [{ label: 'Mins', data: dailyMins, borderColor: '#00ff00', backgroundColor: 'rgba(0, 255, 0, 0.1)', borderWidth: 2, fill: true, tension: 0.3 }] },
+    options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00', font: { size: 9 } } }, x: { grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00', font: { size: 9 } } } }, plugins: { legend: { display: false } } }
+  });
+
+  // 3. Active Problems Chart (Current Data)
+  const activeSection = document.getElementById('active-chart-section');
+  if (currentProblems.length > 0) {
+    activeSection.style.display = 'flex';
+    const activeLabels = currentProblems.map(p => p.name.length > 8 ? p.name.substring(0, 8) + '..' : p.name);
+    const activeData = currentProblems.map(p => {
+      const elapsed = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
+      return parseFloat((elapsed / 60000).toFixed(2));
+    });
+
+    const ctxA = document.getElementById('activeProblemsChart').getContext('2d');
+    if (activeChart) activeChart.destroy();
+    activeChart = new Chart(ctxA, {
+      type: 'bar',
+      data: { labels: activeLabels, datasets: [{ label: 'Mins', data: activeData, backgroundColor: 'rgba(0, 255, 0, 0.4)', borderColor: '#00ff00', borderWidth: 1 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00', font: { size: 9 } } }, y: { grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00', font: { size: 9 } } } }, plugins: { legend: { display: false } } }
+    });
+  } else {
+    activeSection.style.display = 'none';
+  }
+}
+
+document.getElementById('clear-log').addEventListener('click', async () => {
+  if (confirm('Clear all history?')) { await activeStorage.set({ leetcode_history: [] }); await renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); }
+});
+
+// Update UI
 setInterval(() => {
   problems.forEach((p, index) => {
     if (p.isRunning) {
@@ -272,119 +342,7 @@ setInterval(() => {
   });
 }, 100);
 
-// --- History & Stats Logic ---
-async function logToHistory(name, elapsed) {
-  const data = await activeStorage.get('leetcode_history');
-  const logs = data.leetcode_history || [];
-  logs.unshift({
-    name,
-    timeStr: formatTime(elapsed, true),
-    elapsedMs: elapsed,
-    timestamp: Date.now()
-  });
-  await activeStorage.set({ leetcode_history: logs });
-}
-
-async function renderHistory() {
-  const list = document.getElementById('log-list');
-  if (!list) return;
-  const data = await activeStorage.get('leetcode_history');
-  const logs = data.leetcode_history || [];
-  if (logs.length === 0) {
-    list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
-    return;
-  }
-  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.timeStr || l.time}<br><small style="opacity: 0.6;">${new Date(l.timestamp || Date.now()).toLocaleString()}</small></div>`).join('');
-}
-
-let myChart;
-async function renderStats() {
-  const data = await activeStorage.get('leetcode_history');
-  const logs = data.leetcode_history || [];
-  
-  // Calculate total stats
-  const totalProblems = logs.length;
-  const totalMs = logs.reduce((sum, l) => {
-    const ms = l.elapsedMs || parseTimeToMs(l.timeStr || l.time);
-    return sum + ms;
-  }, 0);
-  
-  // Improved time display: show mins and secs
-  const totalMinsDisplay = Math.floor(totalMs / 60000);
-  const totalSecsDisplay = Math.floor((totalMs % 60000) / 1000);
-  const displayStr = totalMinsDisplay > 0 ? `${totalMinsDisplay}m ${totalSecsDisplay}s` : `${totalSecsDisplay}s`;
-  
-  document.getElementById('total-problems').textContent = totalProblems;
-  document.getElementById('total-time-spent').textContent = displayStr;
-  
-  // Group by last 7 days for the chart
-  const last7Days = [];
-  const last7Keys = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    last7Days.push(String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0'));
-    last7Keys.push(getDateKey(d));
-  }
-  
-  const dailyMins = last7Keys.map(key => {
-    const dayLogs = logs.filter(l => getDateKey(l.timestamp || new Date()) === key);
-    const dayMs = dayLogs.reduce((sum, l) => {
-      return sum + (l.elapsedMs || parseTimeToMs(l.timeStr || l.time));
-    }, 0);
-    return parseFloat((dayMs / 60000).toFixed(2)); // Show partial minutes on chart
-  });
-  
-  // Render Chart.js
-  const canvas = document.getElementById('progressChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (myChart) myChart.destroy();
-  
-  myChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: last7Days,
-      datasets: [{
-        label: 'Minutes Spent',
-        data: dailyMins,
-        borderColor: '#00ff00',
-        backgroundColor: 'rgba(0, 255, 0, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.3
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      scales: {
-        y: { beginAtZero: true, grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00' } },
-        x: { grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00' } }
-      },
-      plugins: {
-        legend: { display: false }
-      }
-    }
-  });
-}
-
-document.getElementById('clear-log').addEventListener('click', async () => {
-  if (confirm('Clear all history?')) {
-    await activeStorage.set({ leetcode_history: [] });
-    await renderHistory();
-    if (document.getElementById('stats').classList.contains('active')) renderStats();
-  }
-});
-
-// Initial load
 async function init() {
-  try {
-    await initTimer();
-    await initStandaloneSw();
-    await loadProblems();
-    await renderHistory();
-  } catch (e) { console.error("Initialization failed:", e); }
+  try { await initTimer(); await initStandaloneSw(); await loadProblems(); await renderHistory(); } catch (e) { console.error("Init failed:", e); }
 }
-
 init();

@@ -20,62 +20,24 @@
   <div class="container">
     <div class="tabs">
       <button class="tab-btn active" data-tab="stopwatch">Problems</button>
+      <button class="tab-btn" data-tab="stats">Stats</button>
+      <button class="tab-btn" data-tab="log">History</button>
       <button class="tab-btn" data-tab="standalone-sw">Stopwatch</button>
       <button class="tab-btn" data-tab="timer">Timer</button>
-      <button class="tab-btn" data-tab="log">History</button>
-      <button class="tab-btn" data-tab="stats">Stats</button>
     </div>
 
-    <!-- Problems (Multi-Stopwatch) Section -->
+    <!-- 1. Problems (Multi-Stopwatch) Section -->
     <div id="stopwatch" class="tab-content active">
       <div class="input-row">
         <input type="text" id="new-problem-name" placeholder="Problem ID/Name">
         <button id="add-problem">Add</button>
       </div>
       <div id="problems-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
-        <!-- Timers appear here -->
+        <!-- Individual problem timers will appear here -->
       </div>
     </div>
 
-    <!-- Standalone Stopwatch Section -->
-    <div id="standalone-sw" class="tab-content">
-      <div class="display" id="sw-display">00:00:00.00</div>
-      <div class="controls">
-        <button id="sw-start">Start</button>
-        <button id="sw-pause">Pause</button>
-        <button id="sw-reset">Reset</button>
-      </div>
-    </div>
-
-    <!-- Timer (Countdown) Section -->
-    <div id="timer" class="tab-content">
-      <div class="display" id="timer-display">00:00:00</div>
-      <div class="input-row">
-        <input type="number" id="timer-input" placeholder="Minutes" min="1">
-        <button id="timer-start">Start</button>
-      </div>
-      <div class="presets">
-        <button class="preset" data-time="5">5m</button>
-        <button class="preset" data-time="10">10m</button>
-        <button class="preset" data-time="25">25m</button>
-      </div>
-      <div class="controls">
-        <button id="timer-pause">Pause</button>
-        <button id="timer-reset">Reset</button>
-      </div>
-    </div>
-
-    <!-- History Section -->
-    <div id="log" class="tab-content">
-      <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff00; padding: 5px;">
-        <!-- History logs here -->
-      </div>
-      <div class="controls" style="margin-top: 15px;">
-        <button id="clear-log">Clear History</button>
-      </div>
-    </div>
-
-    <!-- Statistics Section -->
+    <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
       <div class="stats-summary">
         <div class="stat-card">
@@ -111,6 +73,44 @@
         <div class="chart-container">
           <canvas id="hourlyActivityChart"></canvas>
         </div>
+      </div>
+    </div>
+
+    <!-- 3. History Section -->
+    <div id="log" class="tab-content">
+      <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff00; padding: 5px;">
+        <!-- History logs will appear here -->
+      </div>
+      <div class="controls" style="margin-top: 15px;">
+        <button id="clear-log">Clear History</button>
+      </div>
+    </div>
+
+    <!-- 4. Standalone Stopwatch Section -->
+    <div id="standalone-sw" class="tab-content">
+      <div class="display" id="sw-display">00:00:00.00</div>
+      <div class="controls">
+        <button id="sw-start">Start</button>
+        <button id="sw-pause">Pause</button>
+        <button id="sw-reset">Reset</button>
+      </div>
+    </div>
+
+    <!-- 5. Timer (Countdown) Section -->
+    <div id="timer" class="tab-content">
+      <div class="display" id="timer-display">00:00:00</div>
+      <div class="input-row">
+        <input type="number" id="timer-input" placeholder="Minutes" min="1">
+        <button id="timer-start">Start</button>
+      </div>
+      <div class="presets">
+        <button class="preset" data-time="5">5m</button>
+        <button class="preset" data-time="10">10m</button>
+        <button class="preset" data-time="25">25m</button>
+      </div>
+      <div class="controls">
+        <button id="timer-pause">Pause</button>
+        <button id="timer-reset">Reset</button>
       </div>
     </div>
   </div>

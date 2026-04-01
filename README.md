@@ -18,7 +18,11 @@ A sleek, #00ff00 (Matrix-style) themed browser extension designed specifically f
 - ✅ **Account Sync:** Automatic backup and sync with your Google or Firefox account via `storage.sync`.
 - ✅ **Matrix Rain:** High-contrast developer theme with subtle falling code animation.
 - ✅ **Data Export:** Download your entire study history as a CSV file for Excel/Sheets.
-- ✅ **Privacy First:** All data is stored in your browser's local/sync storage and **never** sent to 3rd party servers.
+
+---
+
+## 🛡️ OUR PROMISE
+**All data is stored in Local/Sync Storage of browsers, and not sent anywhere.**
 
 ---
 

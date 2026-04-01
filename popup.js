@@ -8,6 +8,8 @@
  * (at your option) any later version.
  */
 
+const storage = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' ? browser.storage.sync : null);
+
 // Dynamic storage selection with multi-layer fallback
 const getStorage = () => {
   if (typeof chrome !== 'undefined') {
@@ -18,7 +20,6 @@ const getStorage = () => {
     if (browser.storage.sync) return browser.storage.sync;
     if (browser.storage.local) return browser.storage.local;
   }
-  // Fallback to a mock for testing environments
   return {
     get: (key) => Promise.resolve({ [key]: JSON.parse(localStorage.getItem(key) || 'null') }),
     set: (obj) => {
@@ -28,17 +29,15 @@ const getStorage = () => {
   };
 };
 
-const storage = getStorage();
+const activeStorage = getStorage();
 
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(button => {
   button.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
     button.classList.add('active');
     document.getElementById(button.dataset.tab).classList.add('active');
-    
     if (button.dataset.tab === 'log') renderHistory();
     if (button.dataset.tab === 'stopwatch') renderProblems();
   });
@@ -58,111 +57,121 @@ function formatTime(ms, isStopwatch = false) {
   return display;
 }
 
-// Timer Logic (Countdown)
+// --- Timer Logic (Countdown) ---
 let timerInterval;
-let timerTimeLeft = 0;
-const timerDisplay = document.getElementById('timer-display');
-const timerInput = document.getElementById('timer-input');
+let timerTargetTime = 0; // When the timer will end
 
-function updateTimerDisplay() {
-  timerDisplay.textContent = formatTime(timerTimeLeft);
+async function initTimer() {
+  const data = await activeStorage.get('timer_target');
+  if (data.timer_target) {
+    timerTargetTime = data.timer_target;
+    startTimerUI();
+  }
 }
 
-document.getElementById('timer-start').addEventListener('click', () => {
-  if (timerInterval) return;
-  if (timerTimeLeft <= 0) {
-    const minutes = parseInt(timerInput.value) || 0;
-    timerTimeLeft = minutes * 60 * 1000;
-  }
-  if (timerTimeLeft > 0) {
-    timerInterval = setInterval(() => {
-      timerTimeLeft -= 1000;
-      updateTimerDisplay();
-      if (timerTimeLeft <= 0) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        timerTimeLeft = 0;
-        updateTimerDisplay();
-        notifyUser();
-      }
-    }, 1000);
+function startTimerUI() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    const timeLeft = timerTargetTime - Date.now();
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+      document.getElementById('timer-display').textContent = '00:00:00';
+      activeStorage.set({ timer_target: 0 });
+    } else {
+      document.getElementById('timer-display').textContent = formatTime(timeLeft);
+    }
+  }, 1000);
+}
+
+document.getElementById('timer-start').addEventListener('click', async () => {
+  const minutes = parseInt(document.getElementById('timer-input').value) || 0;
+  if (minutes > 0) {
+    timerTargetTime = Date.now() + minutes * 60 * 1000;
+    await activeStorage.set({ timer_target: timerTargetTime });
+    chrome.alarms.create('timer-finished', { when: timerTargetTime });
+    startTimerUI();
   }
 });
 
 document.getElementById('timer-pause').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
+  chrome.alarms.clear('timer-finished');
+  activeStorage.set({ timer_target: 0 });
 });
 
 document.getElementById('timer-reset').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
-  timerTimeLeft = 0;
-  updateTimerDisplay();
+  timerTargetTime = 0;
+  chrome.alarms.clear('timer-finished');
+  activeStorage.set({ timer_target: 0 });
+  document.getElementById('timer-display').textContent = '00:00:00';
 });
 
-document.querySelectorAll('.preset').forEach(btn => {
-  btn.addEventListener('click', () => {
-    timerTimeLeft = parseInt(btn.dataset.time) * 60 * 1000;
-    updateTimerDisplay();
-  });
-});
-
-// Standalone Stopwatch Logic
+// --- Standalone Stopwatch Logic ---
 let swElapsedTime = 0;
 let swStartTime = 0;
 let swInterval = null;
 const swDisplay = document.getElementById('sw-display');
 
 async function initStandaloneSw() {
-  try {
-    const data = await storage.get('sw_elapsed');
-    swElapsedTime = data.sw_elapsed || 0;
+  const data = await activeStorage.get(['sw_elapsed', 'sw_start_time', 'sw_is_running']);
+  swElapsedTime = data.sw_elapsed || 0;
+  if (data.sw_is_running) {
+    swStartTime = data.sw_start_time;
+    startSwUI();
+  } else {
     updateSwDisplay();
-  } catch (e) { console.error("SW Init failed", e); }
+  }
 }
 
 function updateSwDisplay() {
   if (swDisplay) swDisplay.textContent = formatTime(swElapsedTime, true);
 }
 
-document.getElementById('sw-start').addEventListener('click', () => {
+function startSwUI() {
+  if (swInterval) clearInterval(swInterval);
+  swInterval = setInterval(() => {
+    const currentElapsed = Date.now() - swStartTime;
+    swDisplay.textContent = formatTime(currentElapsed, true);
+  }, 50);
+}
+
+document.getElementById('sw-start').addEventListener('click', async () => {
   if (swInterval) return;
   swStartTime = Date.now() - swElapsedTime;
-  swInterval = setInterval(() => {
-    swElapsedTime = Date.now() - swStartTime;
-    updateSwDisplay();
-    storage.set({ sw_elapsed: swElapsedTime });
-  }, 10);
+  await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime });
+  startSwUI();
 });
 
-document.getElementById('sw-pause').addEventListener('click', () => {
+document.getElementById('sw-pause').addEventListener('click', async () => {
   clearInterval(swInterval);
   swInterval = null;
+  swElapsedTime = Date.now() - swStartTime;
+  await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime });
 });
 
-document.getElementById('sw-reset').addEventListener('click', () => {
+document.getElementById('sw-reset').addEventListener('click', async () => {
   clearInterval(swInterval);
   swInterval = null;
   swElapsedTime = 0;
-  storage.set({ sw_elapsed: 0 });
+  await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 });
   updateSwDisplay();
 });
 
-// Problems (Multi-Stopwatch) Logic
+// --- Problems (Multi-Stopwatch) Logic ---
 let problems = [];
 
 async function loadProblems() {
-  try {
-    const data = await storage.get('leetcode_problems');
-    problems = data.leetcode_problems || [];
-    renderProblems();
-  } catch (e) { console.error("Load Problems failed", e); }
+  const data = await activeStorage.get('leetcode_problems');
+  problems = data.leetcode_problems || [];
+  renderProblems();
 }
 
 async function saveProblems() {
-  try { await storage.set({ leetcode_problems: problems }); }
-  catch (e) { console.error("Save Problems failed", e); }
+  await activeStorage.set({ leetcode_problems: problems });
 }
 
 function renderProblems() {
@@ -170,6 +179,7 @@ function renderProblems() {
   if (!container) return;
   container.innerHTML = '';
   problems.forEach((p, index) => {
+    const currentElapsed = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
     const row = document.createElement('div');
     row.className = 'problem-row';
     row.innerHTML = `
@@ -178,10 +188,8 @@ function renderProblems() {
         <button class="btn-small" data-index="${index}" data-action="delete">X</button>
       </div>
       <div class="problem-controls">
-        <div class="problem-time" id="time-${index}">${formatTime(p.elapsed, true)}</div>
-        <button class="btn-small" data-index="${index}" data-action="toggle">
-          ${p.isRunning ? 'PAUSE' : 'START'}
-        </button>
+        <div class="problem-time" id="time-${index}">${formatTime(currentElapsed, true)}</div>
+        <button class="btn-small" data-index="${index}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
         <button class="btn-small" data-index="${index}" data-action="reset">RESET</button>
         <button class="btn-small" data-index="${index}" data-action="finish">FINISH</button>
       </div>
@@ -194,7 +202,7 @@ document.getElementById('add-problem').addEventListener('click', async () => {
   const input = document.getElementById('new-problem-name');
   const name = input.value.trim();
   if (!name) return;
-  problems.push({ name, elapsed: 0, isRunning: false, lastTick: 0 });
+  problems.push({ name, elapsed: 0, isRunning: false, startTime: 0 });
   input.value = '';
   await saveProblems();
   renderProblems();
@@ -204,106 +212,69 @@ document.getElementById('problems-container').addEventListener('click', async (e
   const action = e.target.dataset.action;
   const index = parseInt(e.target.dataset.index);
   if (action === undefined) return;
-  
+  const p = problems[index];
   if (action === 'toggle') {
-    const p = problems[index];
-    p.isRunning = !p.isRunning;
-    p.lastTick = Date.now();
+    if (p.isRunning) {
+      p.elapsed = Date.now() - p.startTime;
+      p.isRunning = false;
+    } else {
+      p.startTime = Date.now() - p.elapsed;
+      p.isRunning = true;
+    }
   } else if (action === 'reset') {
-    problems[index].elapsed = 0;
-    problems[index].isRunning = false;
+    p.elapsed = 0;
+    p.isRunning = false;
   } else if (action === 'delete') {
     problems.splice(index, 1);
   } else if (action === 'finish') {
-    const p = problems[index];
-    await logToHistory(p.name, p.elapsed);
+    const finalElapsed = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
+    await logToHistory(p.name, finalElapsed);
     problems.splice(index, 1);
   }
   await saveProblems();
   renderProblems();
 });
 
-// Update running timers
-setInterval(async () => {
-  let changed = false;
+// Update UI for running problems
+setInterval(() => {
   problems.forEach((p, index) => {
     if (p.isRunning) {
-      const now = Date.now();
-      const delta = now - p.lastTick;
-      p.elapsed += delta;
-      p.lastTick = now;
-      changed = true;
       const timeEl = document.getElementById(`time-${index}`);
-      if (timeEl) timeEl.textContent = formatTime(p.elapsed, true);
+      if (timeEl) timeEl.textContent = formatTime(Date.now() - p.startTime, true);
     }
   });
-  if (changed) await saveProblems();
 }, 100);
 
-// History Logic
+// --- History Logic ---
 async function logToHistory(name, elapsed) {
-  try {
-    const data = await storage.get('leetcode_history');
-    const logs = data.leetcode_history || [];
-    logs.unshift({ name, time: formatTime(elapsed, true), timestamp: new Date().toLocaleString() });
-    await storage.set({ leetcode_history: logs });
-  } catch (e) { console.error("Log to History failed", e); }
+  const data = await activeStorage.get('leetcode_history');
+  const logs = data.leetcode_history || [];
+  logs.unshift({ name, time: formatTime(elapsed, true), timestamp: new Date().toLocaleString() });
+  await activeStorage.set({ leetcode_history: logs });
 }
 
 async function renderHistory() {
   const list = document.getElementById('log-list');
   if (!list) return;
-  try {
-    const data = await storage.get('leetcode_history');
-    const logs = data.leetcode_history || [];
-    if (logs.length === 0) {
-      list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
-      return;
-    }
-    list.innerHTML = logs.map(l => `
-      <div class="log-entry">
-        <strong>${l.name}</strong>: ${l.time}<br>
-        <small style="opacity: 0.6;">${l.timestamp}</small>
-      </div>
-    `).join('');
-  } catch (e) { console.error("Render History failed", e); }
+  const data = await activeStorage.get('leetcode_history');
+  const logs = data.leetcode_history || [];
+  if (logs.length === 0) {
+    list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
+    return;
+  }
+  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.time}<br><small style="opacity: 0.6;">${l.timestamp}</small></div>`).join('');
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => {
   if (confirm('Clear all history?')) {
-    await storage.set({ leetcode_history: [] });
+    await activeStorage.set({ leetcode_history: [] });
     await renderHistory();
   }
 });
 
-// Notifications
-function playBeep() {
-  try {
-    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.5);
-  } catch (e) { console.error("Beep failed", e); }
-}
-
-function notifyUser() {
-  playBeep();
-  const options = { type: "basic", iconUrl: "icons/icon-48.png", title: "Time's Up!", message: "Your timer has finished." };
-  if (typeof chrome !== 'undefined' && chrome.storage && chrome.notifications) {
-    chrome.notifications.create(options);
-  } else if (typeof browser !== 'undefined' && browser.notifications) {
-    browser.notifications.create(options);
-  }
-}
-
 // Initial loads
 async function init() {
+  await initTimer();
   await initStandaloneSw();
   await loadProblems();
   await renderHistory();

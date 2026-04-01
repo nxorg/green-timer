@@ -26,7 +26,12 @@ class MatrixRain {
     this.drops = Array(this.columns).fill(1);
   }
   animate() {
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    if (document.hidden) {
+      requestAnimationFrame(() => this.animate());
+      return;
+    }
+    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+ this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     this.ctx.fillStyle = '#0f0'; this.ctx.font = '15px monospace';
     for (let i = 0; i < this.drops.length; i++) {
       const text = String.fromCharCode(0x30A0 + Math.random() * 96);

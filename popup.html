@@ -33,7 +33,7 @@
         <button id="add-problem">Add</button>
       </div>
       <div id="problems-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px;">
-        <!-- Individual problem timers will appear here -->
+        <!-- Timers appear here -->
       </div>
     </div>
 
@@ -68,7 +68,7 @@
     <!-- History Section -->
     <div id="log" class="tab-content">
       <div id="log-list" style="max-height: 250px; overflow-y: auto; margin-top: 10px; font-size: 0.9em; border: 1px solid #00ff00; padding: 5px;">
-        <!-- History logs will appear here -->
+        <!-- History logs here -->
       </div>
       <div class="controls" style="margin-top: 15px;">
         <button id="clear-log">Clear History</button>
@@ -81,6 +81,10 @@
         <div class="stat-card">
           <div class="stat-value" id="total-problems">0</div>
           <div class="stat-label">Problems</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="current-streak">0</div>
+          <div class="stat-label">Day Streak</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="total-time-spent">0s</div>
@@ -99,6 +103,13 @@
         <div class="chart-label">Active Problems (Mins)</div>
         <div class="chart-container">
           <canvas id="activeProblemsChart"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-section" style="margin-top: 15px;">
+        <div class="chart-label">Hourly Activity (Solved Count)</div>
+        <div class="chart-container">
+          <canvas id="hourlyActivityChart"></canvas>
         </div>
       </div>
     </div>

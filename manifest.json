@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Green Timer & Stopwatch",
-  "version": "1.0",
-  "description": "A sleek #00ff00 themed timer and stopwatch extension.",
-  "permissions": ["notifications", "alarms"],
+  "version": "1.1",
+  "description": "A sleek #00ff00 themed timer and stopwatch extension with account sync.",
+  "permissions": ["notifications", "alarms", "storage"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

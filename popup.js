@@ -1,3 +1,5 @@
+const storage = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' ? browser.storage.sync : null);
+
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(button => {
   button.addEventListener('click', () => {
@@ -17,17 +19,12 @@ function formatTime(ms, isStopwatch = false) {
   let seconds = Math.floor(ms / 1000);
   let minutes = Math.floor(seconds / 60);
   let hours = Math.floor(minutes / 60);
-
-  seconds %= 60;
-  minutes %= 60;
-
+  seconds %= 60; minutes %= 60;
   let display = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  
   if (isStopwatch) {
     let milliseconds = Math.floor((ms % 1000) / 10);
     display += `.${String(milliseconds).padStart(2, '0')}`;
   }
-  
   return display;
 }
 
@@ -82,10 +79,18 @@ document.querySelectorAll('.preset').forEach(btn => {
 });
 
 // Standalone Stopwatch Logic
-let swElapsedTime = parseInt(localStorage.getItem('sw_elapsed') || '0');
+let swElapsedTime = 0;
 let swStartTime = 0;
 let swInterval = null;
 const swDisplay = document.getElementById('sw-display');
+
+async function initStandaloneSw() {
+  if (storage) {
+    const data = await storage.get('sw_elapsed');
+    swElapsedTime = data.sw_elapsed || 0;
+    updateSwDisplay();
+  }
+}
 
 function updateSwDisplay() {
   swDisplay.textContent = formatTime(swElapsedTime, true);
@@ -97,7 +102,7 @@ document.getElementById('sw-start').addEventListener('click', () => {
   swInterval = setInterval(() => {
     swElapsedTime = Date.now() - swStartTime;
     updateSwDisplay();
-    localStorage.setItem('sw_elapsed', swElapsedTime);
+    if (storage) storage.set({ sw_elapsed: swElapsedTime });
   }, 10);
 });
 
@@ -110,23 +115,30 @@ document.getElementById('sw-reset').addEventListener('click', () => {
   clearInterval(swInterval);
   swInterval = null;
   swElapsedTime = 0;
-  localStorage.setItem('sw_elapsed', '0');
+  if (storage) storage.set({ sw_elapsed: 0 });
   updateSwDisplay();
 });
 
-updateSwDisplay();
-
 // Problems (Multi-Stopwatch) Logic
-let problems = JSON.parse(localStorage.getItem('leetcode_problems') || '[]');
+let problems = [];
 
-function saveProblems() {
-  localStorage.setItem('leetcode_problems', JSON.stringify(problems));
+async function loadProblems() {
+  if (storage) {
+    const data = await storage.get('leetcode_problems');
+    problems = data.leetcode_problems || [];
+    renderProblems();
+  }
+}
+
+async function saveProblems() {
+  if (storage) {
+    await storage.set({ leetcode_problems: problems });
+  }
 }
 
 function renderProblems() {
   const container = document.getElementById('problems-container');
   container.innerHTML = '';
-  
   problems.forEach((p, index) => {
     const row = document.createElement('div');
     row.className = 'problem-row';
@@ -148,24 +160,17 @@ function renderProblems() {
   });
 }
 
-document.getElementById('add-problem').addEventListener('click', () => {
+document.getElementById('add-problem').addEventListener('click', async () => {
   const input = document.getElementById('new-problem-name');
   const name = input.value.trim();
   if (!name) return;
-  
-  problems.push({
-    name,
-    elapsed: 0,
-    isRunning: false,
-    lastTick: 0
-  });
-  
+  problems.push({ name, elapsed: 0, isRunning: false, lastTick: 0 });
   input.value = '';
-  saveProblems();
+  await saveProblems();
   renderProblems();
 });
 
-document.getElementById('problems-container').addEventListener('click', (e) => {
+document.getElementById('problems-container').addEventListener('click', async (e) => {
   const action = e.target.dataset.action;
   const index = parseInt(e.target.dataset.index);
   if (action === undefined) return;
@@ -181,16 +186,15 @@ document.getElementById('problems-container').addEventListener('click', (e) => {
     problems.splice(index, 1);
   } else if (action === 'finish') {
     const p = problems[index];
-    logToHistory(p.name, p.elapsed);
+    await logToHistory(p.name, p.elapsed);
     problems.splice(index, 1);
   }
-  
-  saveProblems();
+  await saveProblems();
   renderProblems();
 });
 
-// Update multi-problem timers
-setInterval(() => {
+// Update running timers
+setInterval(async () => {
   let changed = false;
   problems.forEach((p, index) => {
     if (p.isRunning) {
@@ -199,46 +203,45 @@ setInterval(() => {
       p.elapsed += delta;
       p.lastTick = now;
       changed = true;
-      
       const timeEl = document.getElementById(`time-${index}`);
       if (timeEl) timeEl.textContent = formatTime(p.elapsed, true);
     }
   });
-  if (changed) saveProblems();
+  if (changed) await saveProblems();
 }, 100);
 
 // History Logic
-function logToHistory(name, elapsed) {
-  const logs = JSON.parse(localStorage.getItem('leetcode_history') || '[]');
-  logs.unshift({
-    name,
-    time: formatTime(elapsed, true),
-    timestamp: new Date().toLocaleString()
-  });
-  localStorage.setItem('leetcode_history', JSON.stringify(logs));
-}
-
-function renderHistory() {
-  const list = document.getElementById('log-list');
-  const logs = JSON.parse(localStorage.getItem('leetcode_history') || '[]');
-  
-  if (logs.length === 0) {
-    list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
-    return;
+async function logToHistory(name, elapsed) {
+  if (storage) {
+    const data = await storage.get('leetcode_history');
+    const logs = data.leetcode_history || [];
+    logs.unshift({ name, time: formatTime(elapsed, true), timestamp: new Date().toLocaleString() });
+    await storage.set({ leetcode_history: logs });
   }
-  
-  list.innerHTML = logs.map(l => `
-    <div style="border-bottom: 1px dashed #00ff0033; padding: 5px 0;">
-      <strong>${l.name}</strong>: ${l.time}<br>
-      <small style="opacity: 0.6;">${l.timestamp}</small>
-    </div>
-  `).join('');
 }
 
-document.getElementById('clear-log').addEventListener('click', () => {
+async function renderHistory() {
+  const list = document.getElementById('log-list');
+  if (storage) {
+    const data = await storage.get('leetcode_history');
+    const logs = data.leetcode_history || [];
+    if (logs.length === 0) {
+      list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
+      return;
+    }
+    list.innerHTML = logs.map(l => `
+      <div style="border-bottom: 1px dashed #00ff0033; padding: 5px 0;">
+        <strong>${l.name}</strong>: ${l.time}<br>
+        <small style="opacity: 0.6;">${l.timestamp}</small>
+      </div>
+    `).join('');
+  }
+}
+
+document.getElementById('clear-log').addEventListener('click', async () => {
   if (confirm('Clear all history?')) {
-    localStorage.setItem('leetcode_history', '[]');
-    renderHistory();
+    if (storage) await storage.set({ leetcode_history: [] });
+    await renderHistory();
   }
 });
 
@@ -263,5 +266,6 @@ function notifyUser() {
   else if (typeof browser !== 'undefined' && browser.notifications) browser.notifications.create(options);
 }
 
-// Initial render
-renderProblems();
+// Initial loads
+initStandaloneSw();
+loadProblems();

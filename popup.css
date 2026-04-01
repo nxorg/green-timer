@@ -19,7 +19,7 @@ body {
   width: 100%; max-width: 400px; min-width: 320px;
   background: var(--bg-dark); color: var(--green);
   font-family: 'Courier New', Courier, monospace;
-  margin: 0; padding: 15px; border: 2px solid var(--green);
+  margin: 0; padding: 15px; border: 0px solid var(--green);
   position: relative; overflow-x: hidden;
   border-radius: var(--radius); /* Rounded main window */
 }

@@ -84,6 +84,20 @@ function parseTimeToMs(ts) {
 }
 function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
 
+// --- Badge Update ---
+async function updateBadge() {
+  const d = await activeStorage.get('leetcode_history');
+  const logs = d.leetcode_history || [];
+  const todayK = getDateKey(new Date());
+  const todayCount = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  
+  if (api.action) {
+    api.action.setBadgeText({ text: todayCount > 0 ? todayCount.toString() : "" });
+    api.action.setBadgeBackgroundColor({ color: "#00ff00" });
+    if (api.action.setBadgeTextColor) api.action.setBadgeTextColor({ color: "#000000" });
+  }
+}
+
 // --- Auto-fill Detection ---
 let detectedDetails = null;
 let detectionRetries = 0;
@@ -109,14 +123,11 @@ async function requestLeetCodeTitle() {
   try {
     const tabs = await api.tabs.query({ active: true, currentWindow: true });
     const tab = tabs[0];
-    
-    // Strict URL check: only act if on a leetcode problem page
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) {
       const statusEl = document.getElementById('detection-status');
       if (statusEl) statusEl.style.display = 'none';
       return;
     }
-
     api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, async (response) => {
       if (api.runtime.lastError || !response) {
         if (api.scripting) {
@@ -125,15 +136,10 @@ async function requestLeetCodeTitle() {
             setTimeout(requestLeetCodeTitle, 300);
           } catch(e) {}
         }
-        // Basic fallback from Tab title
-        let title = tab.title;
-        if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
-        let num = ""; let name = title;
-        if (title.includes('. ')) { num = title.split('. ')[0]; name = title.split('. ').slice(1).join('. '); }
+        let title = tab.title; if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
+        let num = ""; let name = title; if (title.includes('. ')) { num = title.split('. ')[0]; name = title.split('. ').slice(1).join('. '); }
         updateProblemInput({ number: num, name: name, url: tab.url });
-      } else {
-        updateProblemInput(response);
-      }
+      } else { updateProblemInput(response); }
     });
   } catch (e) { console.error("Detection failed", e); }
 }
@@ -211,7 +217,7 @@ document.getElementById('problems-container').addEventListener('click', async (e
   if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } }
   else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; }
   else if (action === 'delete') { problems.splice(i, 1); }
-  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); }
+  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); updateBadge(); }
   await saveProblems(); renderProblems(); startUIInterval();
 });
 
@@ -226,7 +232,7 @@ function startUIInterval() {
 // --- Listeners ---
 api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details') updateProblemInput(msg.details); });
 
-// --- History & Stats ---
+// --- History & CSV ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   h.unshift({ name: prob.name, number: prob.number, url: prob.url, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
@@ -288,8 +294,8 @@ async function renderStats() {
   if(ctxHo) { if (hoChart) hoChart.destroy(); hoChart = new Chart(ctxHo, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 }
 
-document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); updateBadge(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
-loadProblems(); initTimers(); requestLeetCodeTitle();
+loadProblems(); initTimers(); requestLeetCodeTitle(); updateBadge();
 async function init() { try { await renderHistory(); } catch(e){} } init();

@@ -63,19 +63,39 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 
 // --- Helpers ---
 function formatTime(ms, isSW = false) {
+  if (!ms || isNaN(ms)) ms = 0;
   let s = Math.floor(ms / 1000); let m = Math.floor(s / 60); let h = Math.floor(m / 60);
   s %= 60; m %= 60;
   let d = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
   if (isSW) d += `.${String(Math.floor((ms%1000)/10)).padStart(2,'0')}`;
   return d;
 }
+
 function parseTimeToMs(ts) {
   if (!ts || typeof ts !== 'string') return 0;
   const p = ts.split(':'); if (p.length < 3) return 0;
   const sp = p[2].split('.');
   return (parseInt(p[0]) * 3600000) + (parseInt(p[1]) * 60000) + (parseInt(sp[0]) * 1000) + (sp[1] ? parseInt(sp[1].substring(0,2).padEnd(2,'0'))*10 : 0);
 }
-function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
+
+// Fixed Date Key helper
+function getDateKey(val) {
+  if (!val) return "";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function formatFriendlyDate(val) {
+  if (!val) return "Unknown Date";
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "Unknown Date";
+  const now = new Date();
+  if (getDateKey(d) === getDateKey(now)) return "Today " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  const yesterday = new Date(now.getTime() - 86400000);
+  if (getDateKey(d) === getDateKey(yesterday)) return "Yesterday " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+  return d.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'});
+}
 
 // --- Auto-fill Detection ---
 let detectedDetails = null;
@@ -87,7 +107,6 @@ function updateProblemInput(details) {
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
   if (el && !el.value) {
-    // Show only the name in the input box, the number is stored in detectedDetails
     el.value = details.name;
     if (statusEl) {
       statusEl.textContent = `✅ Detected: #${details.number || '?'}`;
@@ -113,7 +132,6 @@ async function requestLeetCodeTitle() {
             setTimeout(requestLeetCodeTitle, 300);
           } catch(e) {}
         }
-        // Basic fallback
         let title = tab.title;
         if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
         let num = ""; let name = title;
@@ -189,12 +207,7 @@ document.getElementById('add-problem').addEventListener('click', async () => {
     let finalName = nameInput;
     let finalNumber = detectedDetails ? detectedDetails.number : "";
     let finalUrl = detectedDetails ? detectedDetails.url : "";
-
-    // Fix: If nameInput already contains the number (e.g. "6. Zigzag..."), strip it to avoid double numbering
-    if (finalNumber && nameInput.startsWith(finalNumber + ". ")) {
-      finalName = nameInput.replace(finalNumber + ". ", "");
-    }
-
+    if (finalNumber && nameInput.startsWith(finalNumber + ". ")) finalName = nameInput.replace(finalNumber + ". ", "");
     problems.push({ name: finalName, number: finalNumber, url: finalUrl, elapsed: 0, isRunning: false, startTime: 0 });
     nEl.value = ''; const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
     detectedDetails = null; await saveProblems(); renderProblems();
@@ -223,7 +236,14 @@ api.commands?.onCommand.addListener((cmd) => {
 // --- History & CSV ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ name: prob.name, number: prob.number, url: prob.url, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
+  h.unshift({ 
+    name: prob.name, 
+    number: prob.number, 
+    url: prob.url,
+    timeStr: formatTime(elapsed, true), 
+    elapsedMs: elapsed, 
+    timestamp: Date.now() 
+  });
   await activeStorage.set({ leetcode_history: h });
 }
 
@@ -234,17 +254,20 @@ async function renderHistory() {
   l.innerHTML = h.map(i => {
     const displayName = (i.number ? i.number + ". " : "") + i.name;
     const titleHtml = i.url ? `<a href="${i.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${displayName}</a>` : displayName;
-    return `<div class="log-entry"><strong>${titleHtml}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${new Date(i.timestamp).toLocaleString()}</small></div>`;
+    const dateDisplay = formatFriendlyDate(i.timestamp);
+    return `<div class="log-entry"><strong>${titleHtml}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${dateDisplay}</small></div>`;
   }).join('');
 }
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   if (h.length === 0) return;
-  let csv = 'Number,Name,Time,URL,Date,Timestamp\n';
+  let csv = 'Number,Name,Time,URL,ISO_Date,Local_Time\n';
   h.forEach(i => {
     const date = new Date(i.timestamp);
-    csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${date.toLocaleDateString()}","${date.toLocaleString()}"\n`;
+    const iso = !isNaN(date.getTime()) ? date.toISOString() : "";
+    const local = !isNaN(date.getTime()) ? date.toLocaleString() : "Unknown";
+    csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${iso}","${local}"\n`;
   });
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
@@ -255,16 +278,25 @@ let hChart, aChart, hoChart;
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
   const logs = d.leetcode_history || []; const curr = d.leetcode_problems || [];
+  
   const totalMs = logs.reduce((s, l) => s + (l.elapsedMs || parseTimeToMs(l.timeStr)), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
-  const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].sort((a,b) => b.localeCompare(a));
-  let streak = 0; if (days.length > 0) {
-    let c = new Date(); c.setHours(0,0,0,0);
-    if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime()-86400000))) {
-      if (days[0] !== getDateKey(c)) c.setDate(c.getDate()-1);
-      for (let day of days) { if (day === getDateKey(c)) { streak++; c.setDate(c.getDate()-1); } else break; }
+  // Streak
+  const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
+  let streak = 0; 
+  if (days.length > 0) {
+    let check = new Date(); check.setHours(0,0,0,0);
+    const todayKey = getDateKey(check);
+    const yesterdayKey = getDateKey(new Date(check.getTime() - 86400000));
+    
+    if (days[0] === todayKey || days[0] === yesterdayKey) {
+      let currentCheck = (days[0] === todayKey) ? check : new Date(check.getTime() - 86400000);
+      for (let day of days) {
+        if (day === getDateKey(currentCheck)) { streak++; currentCheck.setDate(currentCheck.getDate() - 1); }
+        else break;
+      }
     }
   }
   document.getElementById('current-streak').textContent = streak;
@@ -286,7 +318,7 @@ async function renderStats() {
     }
   } else if (activeS) activeS.style.display = 'none';
 
-  const hrData = Array(24).fill(0); logs.forEach(l => { hrData[new Date(l.timestamp).getHours()]++; });
+  const hrData = Array(24).fill(0); logs.forEach(l => { const d = new Date(l.timestamp); if (!isNaN(d.getTime())) hrData[d.getHours()]++; });
   const ctxHo = document.getElementById('hourlyActivityChart');
   if(ctxHo) {
     if (hoChart) hoChart.destroy();
@@ -294,7 +326,7 @@ async function renderStats() {
   }
 }
 
-document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
 new MatrixRain(); loadProblems(); initTimers(); requestLeetCodeTitle();

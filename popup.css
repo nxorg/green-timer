@@ -42,6 +42,7 @@ body {
   justify-content: space-between;
   border-bottom: 1px solid var(--green);
   margin-bottom: 10px;
+  flex-wrap: wrap;
 }
 
 .tab-btn {
@@ -49,7 +50,7 @@ body {
   border: none;
   color: var(--green);
   font-family: inherit;
-  font-size: 0.9em;
+  font-size: 0.85em;
   padding: 8px;
   cursor: pointer;
   opacity: 0.5;
@@ -71,6 +72,41 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* Stats Styles */
+.stats-summary {
+  display: flex;
+  justify-content: space-around;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--green);
+  padding: 10px;
+  text-align: center;
+  flex-grow: 1;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.1);
+}
+
+.stat-value {
+  font-size: 1.5em;
+  font-weight: bold;
+  text-shadow: var(--glow);
+}
+
+.stat-label {
+  font-size: 0.75em;
+  opacity: 0.7;
+}
+
+.chart-container {
+  background: var(--bg-card);
+  border: 1px solid var(--green);
+  padding: 10px;
+  height: 200px;
 }
 
 /* Problem Row Styles */
@@ -138,6 +174,7 @@ input {
   padding: 8px;
   font-family: inherit;
   outline: none;
+  width: 100%;
 }
 
 button {

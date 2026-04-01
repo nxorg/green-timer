@@ -17,13 +17,10 @@ const activeStorage = {
       if (storageAPI) {
         storageAPI.get(keys, (data) => resolve(data || {}));
       } else {
-        // Fallback for non-extension environments (local testing)
         const result = {};
         const keyArray = Array.isArray(keys) ? keys : [keys];
         keyArray.forEach(k => {
-          try {
-            result[k] = JSON.parse(localStorage.getItem(k) || 'null');
-          } catch (e) { result[k] = null; }
+          try { result[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { result[k] = null; }
         });
         resolve(result);
       }
@@ -31,12 +28,8 @@ const activeStorage = {
   },
   set: (obj) => {
     return new Promise((resolve) => {
-      if (storageAPI) {
-        storageAPI.set(obj, () => resolve());
-      } else {
-        for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k]));
-        resolve();
-      }
+      if (storageAPI) { storageAPI.set(obj, () => resolve()); }
+      else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); resolve(); }
     });
   }
 };
@@ -48,8 +41,10 @@ document.querySelectorAll('.tab-btn').forEach(button => {
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
     button.classList.add('active');
     document.getElementById(button.dataset.tab).classList.add('active');
+    
     if (button.dataset.tab === 'log') renderHistory();
     if (button.dataset.tab === 'stopwatch') renderProblems();
+    if (button.dataset.tab === 'stats') renderStats();
   });
 });
 
@@ -168,10 +163,7 @@ document.getElementById('sw-start').addEventListener('click', async () => {
 });
 
 document.getElementById('sw-pause').addEventListener('click', async () => {
-  if (swInterval) {
-    clearInterval(swInterval);
-    swInterval = null;
-  }
+  if (swInterval) { clearInterval(swInterval); swInterval = null; }
   swElapsedTime = Date.now() - swStartTime;
   await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime });
   updateSwDisplay();
@@ -238,19 +230,11 @@ document.getElementById('problems-container').addEventListener('click', async (e
   if (action === undefined || isNaN(index)) return;
   const p = problems[index];
   if (action === 'toggle') {
-    if (p.isRunning) {
-      p.elapsed = Date.now() - p.startTime;
-      p.isRunning = false;
-    } else {
-      p.startTime = Date.now() - p.elapsed;
-      p.isRunning = true;
-    }
-  } else if (action === 'reset') {
-    p.elapsed = 0;
-    p.isRunning = false;
-  } else if (action === 'delete') {
-    problems.splice(index, 1);
-  } else if (action === 'finish') {
+    if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; }
+    else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; }
+  } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; }
+  else if (action === 'delete') { problems.splice(index, 1); }
+  else if (action === 'finish') {
     const finalElapsed = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
     await logToHistory(p.name, finalElapsed);
     problems.splice(index, 1);
@@ -269,11 +253,18 @@ setInterval(() => {
   });
 }, 100);
 
-// --- History Logic ---
+// --- History & Stats Logic ---
 async function logToHistory(name, elapsed) {
   const data = await activeStorage.get('leetcode_history');
   const logs = data.leetcode_history || [];
-  logs.unshift({ name, time: formatTime(elapsed, true), timestamp: new Date().toLocaleString() });
+  // Store both the readable time and the raw milliseconds/timestamp for better stats
+  logs.unshift({
+    name,
+    timeStr: formatTime(elapsed, true),
+    elapsedMs: elapsed,
+    timestamp: Date.now(),
+    dateStr: new Date().toLocaleDateString()
+  });
   await activeStorage.set({ leetcode_history: logs });
 }
 
@@ -286,7 +277,66 @@ async function renderHistory() {
     list.innerHTML = '<div style="opacity: 0.5;">No history yet.</div>';
     return;
   }
-  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.time}<br><small style="opacity: 0.6;">${l.timestamp}</small></div>`).join('');
+  list.innerHTML = logs.map(l => `<div class="log-entry"><strong>${l.name}</strong>: ${l.timeStr || l.time}<br><small style="opacity: 0.6;">${new Date(l.timestamp).toLocaleString()}</small></div>`).join('');
+}
+
+let myChart;
+async function renderStats() {
+  const data = await activeStorage.get('leetcode_history');
+  const logs = data.leetcode_history || [];
+  
+  // Calculate total stats
+  const totalProblems = logs.length;
+  const totalMs = logs.reduce((sum, l) => sum + (l.elapsedMs || 0), 0);
+  const totalMins = Math.round(totalMs / 60000);
+  
+  document.getElementById('total-problems').textContent = totalProblems;
+  document.getElementById('total-time-spent').textContent = `${totalMins}m`;
+  
+  // Group by last 7 days for the chart
+  const last7Days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    last7Days.push(d.toLocaleDateString());
+  }
+  
+  const dailyMins = last7Days.map(dateStr => {
+    const dayLogs = logs.filter(l => new Date(l.timestamp).toLocaleDateString() === dateStr);
+    const dayMs = dayLogs.reduce((sum, l) => sum + (l.elapsedMs || 0), 0);
+    return Math.round(dayMs / 60000);
+  });
+  
+  // Render Chart.js
+  const ctx = document.getElementById('progressChart').getContext('2d');
+  if (myChart) myChart.destroy();
+  
+  myChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: last7Days.map(d => d.split('/')[0] + '/' + d.split('/')[1]), // Short date format
+      datasets: [{
+        label: 'Minutes Spent',
+        data: dailyMins,
+        borderColor: '#00ff00',
+        backgroundColor: 'rgba(0, 255, 0, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00' } },
+        x: { grid: { color: 'rgba(0, 255, 0, 0.1)' }, ticks: { color: '#00ff00' } }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => {

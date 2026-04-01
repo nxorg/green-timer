@@ -13,6 +13,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Green Timer</title>
   <link rel="stylesheet" href="popup.css">
+  <!-- Local Chart.js for store compliance -->
+  <script src="chart.js"></script>
 </head>
 <body>
   <div class="container">
@@ -21,6 +23,7 @@
       <button class="tab-btn" data-tab="standalone-sw">Stopwatch</button>
       <button class="tab-btn" data-tab="timer">Timer</button>
       <button class="tab-btn" data-tab="log">History</button>
+      <button class="tab-btn" data-tab="stats">Stats</button>
     </div>
 
     <!-- Problems (Multi-Stopwatch) Section -->
@@ -69,6 +72,23 @@
       </div>
       <div class="controls" style="margin-top: 15px;">
         <button id="clear-log">Clear History</button>
+      </div>
+    </div>
+
+    <!-- Statistics Section -->
+    <div id="stats" class="tab-content">
+      <div class="stats-summary">
+        <div class="stat-card">
+          <div class="stat-value" id="total-problems">0</div>
+          <div class="stat-label">Problems</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-time-spent">0m</div>
+          <div class="stat-label">Total Time</div>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="progressChart"></canvas>
       </div>
     </div>
   </div>

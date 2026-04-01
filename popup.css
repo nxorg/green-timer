@@ -32,7 +32,7 @@ body.light-mode {
 body {
   width: 100%; max-width: 400px; min-width: 320px;
   background: var(--bg-dark); color: var(--text-color);
-  font-family: 'Courier New', Courier, monospace;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Segoe UI Mono', monospace;
   margin: 0; padding: 15px; 
   border: 2px solid var(--border-color);
   position: relative; overflow-x: hidden;
@@ -121,7 +121,17 @@ body:not(.light-mode) #moon-icon { display: none !important; }
 .btn-small:hover { background: var(--green); color: var(--bg-dark); }
 
 /* Form Elements */
-.display { font-size: 2.2em; text-align: center; margin: 5px 0; text-shadow: var(--glow); background: var(--bg-card); padding: 10px; color: var(--green); }
+.display { 
+  font-size: 2.2em; 
+  text-align: center; 
+  margin: 5px 0; 
+  text-shadow: var(--glow); 
+  background: var(--bg-card); 
+  padding: 10px; 
+  color: var(--green);
+  font-weight: 700;
+  letter-spacing: 1px;
+}
 .input-row { display: flex; gap: 5px; align-items: center; }
 input, select { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; font-family: inherit; outline: none; width: 100%; }
 button { background: transparent; border: 1px solid var(--border-color); color: var(--green); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }

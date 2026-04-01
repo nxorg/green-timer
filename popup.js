@@ -81,22 +81,21 @@ function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+Strin
 let detectedDetails = null;
 let detectionRetries = 0;
 
-function updateProblemInput(data) {
-  if (!data) return false;
+function updateProblemInput(details) {
+  if (!details) return false;
+  detectedDetails = details;
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
-  if (!el || el.value) return false;
-
-  if (typeof data === 'string') {
-    el.value = data;
-    detectedDetails = { number: "", name: data, url: "" };
-  } else {
-    detectedDetails = data;
-    el.value = (data.number ? data.number + ". " : "") + data.name;
+  if (el && !el.value) {
+    // Show only the name in the input box, the number is stored in detectedDetails
+    el.value = details.name;
+    if (statusEl) {
+      statusEl.textContent = `✅ Detected: #${details.number || '?'}`;
+      statusEl.style.display = 'block';
+    }
+    return true;
   }
-  
-  if (statusEl) statusEl.style.display = 'block';
-  return true;
+  return false;
 }
 
 async function requestLeetCodeTitle() {
@@ -114,9 +113,12 @@ async function requestLeetCodeTitle() {
             setTimeout(requestLeetCodeTitle, 300);
           } catch(e) {}
         }
+        // Basic fallback
         let title = tab.title;
         if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
-        updateProblemInput(title);
+        let num = ""; let name = title;
+        if (title.includes('. ')) { num = title.split('. ')[0]; name = title.split('. ').slice(1).join('. '); }
+        updateProblemInput({ number: num, name: name, url: tab.url });
       } else {
         updateProblemInput(response);
       }
@@ -187,7 +189,12 @@ document.getElementById('add-problem').addEventListener('click', async () => {
     let finalName = nameInput;
     let finalNumber = detectedDetails ? detectedDetails.number : "";
     let finalUrl = detectedDetails ? detectedDetails.url : "";
-    if (detectedDetails && nameInput.indexOf(detectedDetails.name) === -1) { finalNumber = ""; finalUrl = ""; }
+
+    // Fix: If nameInput already contains the number (e.g. "6. Zigzag..."), strip it to avoid double numbering
+    if (finalNumber && nameInput.startsWith(finalNumber + ". ")) {
+      finalName = nameInput.replace(finalNumber + ". ", "");
+    }
+
     problems.push({ name: finalName, number: finalNumber, url: finalUrl, elapsed: 0, isRunning: false, startTime: 0 });
     nEl.value = ''; const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
     detectedDetails = null; await saveProblems(); renderProblems();

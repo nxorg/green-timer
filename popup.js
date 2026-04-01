@@ -8,28 +8,38 @@
  * (at your option) any later version.
  */
 
-const storage = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' ? browser.storage.sync : null);
+// Better storage wrapper for cross-browser MV3
+const storageAPI = (typeof chrome !== 'undefined' && chrome.storage) ? chrome.storage.sync : (typeof browser !== 'undefined' && browser.storage ? browser.storage.sync : null);
 
-// Dynamic storage selection with multi-layer fallback
-const getStorage = () => {
-  if (typeof chrome !== 'undefined') {
-    if (chrome.storage && chrome.storage.sync) return chrome.storage.sync;
-    if (chrome.storage && chrome.storage.local) return chrome.storage.local;
+const activeStorage = {
+  get: (keys) => {
+    return new Promise((resolve) => {
+      if (storageAPI) {
+        storageAPI.get(keys, (data) => resolve(data || {}));
+      } else {
+        // Fallback for non-extension environments (local testing)
+        const result = {};
+        const keyArray = Array.isArray(keys) ? keys : [keys];
+        keyArray.forEach(k => {
+          try {
+            result[k] = JSON.parse(localStorage.getItem(k) || 'null');
+          } catch (e) { result[k] = null; }
+        });
+        resolve(result);
+      }
+    });
+  },
+  set: (obj) => {
+    return new Promise((resolve) => {
+      if (storageAPI) {
+        storageAPI.set(obj, () => resolve());
+      } else {
+        for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k]));
+        resolve();
+      }
+    });
   }
-  if (typeof browser !== 'undefined' && browser.storage) {
-    if (browser.storage.sync) return browser.storage.sync;
-    if (browser.storage.local) return browser.storage.local;
-  }
-  return {
-    get: (key) => Promise.resolve({ [key]: JSON.parse(localStorage.getItem(key) || 'null') }),
-    set: (obj) => {
-      for (let key in obj) localStorage.setItem(key, JSON.stringify(obj[key]));
-      return Promise.resolve();
-    }
-  };
 };
-
-const activeStorage = getStorage();
 
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(button => {
@@ -59,13 +69,15 @@ function formatTime(ms, isStopwatch = false) {
 
 // --- Timer Logic (Countdown) ---
 let timerInterval;
-let timerTargetTime = 0; // When the timer will end
+let timerTargetTime = 0;
 
 async function initTimer() {
   const data = await activeStorage.get('timer_target');
-  if (data.timer_target) {
+  if (data.timer_target && data.timer_target > Date.now()) {
     timerTargetTime = data.timer_target;
     startTimerUI();
+  } else {
+    document.getElementById('timer-display').textContent = '00:00:00';
   }
 }
 
@@ -89,7 +101,9 @@ document.getElementById('timer-start').addEventListener('click', async () => {
   if (minutes > 0) {
     timerTargetTime = Date.now() + minutes * 60 * 1000;
     await activeStorage.set({ timer_target: timerTargetTime });
-    chrome.alarms.create('timer-finished', { when: timerTargetTime });
+    if (typeof chrome !== 'undefined' && chrome.alarms) {
+      chrome.alarms.create('timer-finished', { when: timerTargetTime });
+    }
     startTimerUI();
   }
 });
@@ -97,7 +111,7 @@ document.getElementById('timer-start').addEventListener('click', async () => {
 document.getElementById('timer-pause').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
-  chrome.alarms.clear('timer-finished');
+  if (typeof chrome !== 'undefined' && chrome.alarms) chrome.alarms.clear('timer-finished');
   activeStorage.set({ timer_target: 0 });
 });
 
@@ -105,22 +119,27 @@ document.getElementById('timer-reset').addEventListener('click', () => {
   clearInterval(timerInterval);
   timerInterval = null;
   timerTargetTime = 0;
-  chrome.alarms.clear('timer-finished');
+  if (typeof chrome !== 'undefined' && chrome.alarms) chrome.alarms.clear('timer-finished');
   activeStorage.set({ timer_target: 0 });
   document.getElementById('timer-display').textContent = '00:00:00';
+});
+
+document.querySelectorAll('.preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('timer-input').value = btn.dataset.time;
+  });
 });
 
 // --- Standalone Stopwatch Logic ---
 let swElapsedTime = 0;
 let swStartTime = 0;
 let swInterval = null;
-const swDisplay = document.getElementById('sw-display');
 
 async function initStandaloneSw() {
   const data = await activeStorage.get(['sw_elapsed', 'sw_start_time', 'sw_is_running']);
   swElapsedTime = data.sw_elapsed || 0;
   if (data.sw_is_running) {
-    swStartTime = data.sw_start_time;
+    swStartTime = data.sw_start_time || Date.now();
     startSwUI();
   } else {
     updateSwDisplay();
@@ -128,14 +147,16 @@ async function initStandaloneSw() {
 }
 
 function updateSwDisplay() {
-  if (swDisplay) swDisplay.textContent = formatTime(swElapsedTime, true);
+  const display = document.getElementById('sw-display');
+  if (display) display.textContent = formatTime(swElapsedTime, true);
 }
 
 function startSwUI() {
   if (swInterval) clearInterval(swInterval);
   swInterval = setInterval(() => {
     const currentElapsed = Date.now() - swStartTime;
-    swDisplay.textContent = formatTime(currentElapsed, true);
+    const display = document.getElementById('sw-display');
+    if (display) display.textContent = formatTime(currentElapsed, true);
   }, 50);
 }
 
@@ -147,10 +168,13 @@ document.getElementById('sw-start').addEventListener('click', async () => {
 });
 
 document.getElementById('sw-pause').addEventListener('click', async () => {
-  clearInterval(swInterval);
-  swInterval = null;
+  if (swInterval) {
+    clearInterval(swInterval);
+    swInterval = null;
+  }
   swElapsedTime = Date.now() - swStartTime;
   await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime });
+  updateSwDisplay();
 });
 
 document.getElementById('sw-reset').addEventListener('click', async () => {
@@ -211,7 +235,7 @@ document.getElementById('add-problem').addEventListener('click', async () => {
 document.getElementById('problems-container').addEventListener('click', async (e) => {
   const action = e.target.dataset.action;
   const index = parseInt(e.target.dataset.index);
-  if (action === undefined) return;
+  if (action === undefined || isNaN(index)) return;
   const p = problems[index];
   if (action === 'toggle') {
     if (p.isRunning) {
@@ -272,12 +296,14 @@ document.getElementById('clear-log').addEventListener('click', async () => {
   }
 });
 
-// Initial loads
+// Initial load
 async function init() {
-  await initTimer();
-  await initStandaloneSw();
-  await loadProblems();
-  await renderHistory();
+  try {
+    await initTimer();
+    await initStandaloneSw();
+    await loadProblems();
+    await renderHistory();
+  } catch (e) { console.error("Initialization failed:", e); }
 }
 
 init();

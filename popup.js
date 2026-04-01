@@ -22,6 +22,22 @@ const activeStorage = {
   })
 };
 
+// --- Theme Logic ---
+async function initTheme() {
+  const data = await activeStorage.get('theme');
+  if (data.theme === 'light') {
+    document.body.classList.add('light-mode');
+  }
+}
+
+document.getElementById('theme-toggle').addEventListener('click', async () => {
+  document.body.classList.toggle('light-mode');
+  const isLight = document.body.classList.contains('light-mode');
+  await activeStorage.set({ theme: isLight ? 'light' : 'dark' });
+  // Update charts if they are visible
+  if (document.getElementById('stats').classList.contains('active')) renderStats();
+});
+
 // --- Matrix Rain ---
 class MatrixRain {
   constructor() {
@@ -40,8 +56,11 @@ class MatrixRain {
   stop() { this.active = false; }
   animate() {
     if (!this.active || document.hidden) return;
-    this.ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = '#0f0'; this.ctx.font = '15px monospace';
+    const isLight = document.body.classList.contains('light-mode');
+    this.ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = isLight ? '#008000' : '#0f0'; // Darker green for light mode
+    this.ctx.font = '15px monospace';
     for (let i = 0; i < this.drops.length; i++) {
       const text = String.fromCharCode(0x30A0 + Math.random() * 96);
       this.ctx.fillText(text, i * 20, this.drops[i] * 20);
@@ -82,7 +101,7 @@ function parseTimeToMs(ts) {
   const sp = p[2].split('.');
   return (parseInt(p[0]) * 3600000) + (parseInt(p[1]) * 60000) + (parseInt(sp[0]) * 1000) + (sp[1] ? parseInt(sp[1].substring(0,2).padEnd(2,'0'))*10 : 0);
 }
-function getDateKey(d) { const o = new Date(d); return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
+function getDateKey(d) { if(!d) return ""; const o = new Date(d); if(isNaN(o.getTime())) return ""; return o.getFullYear()+'-'+String(o.getMonth()+1).padStart(2,'0')+'-'+String(o.getDate()).padStart(2,'0'); }
 
 // --- Auto-fill Detection ---
 let detectedDetails = null;
@@ -107,8 +126,7 @@ async function requestLeetCodeTitle() {
     const tabs = await api.tabs.query({ active: true, currentWindow: true });
     const tab = tabs[0];
     if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) {
-      const statusEl = document.getElementById('detection-status');
-      if (statusEl) statusEl.style.display = 'none';
+      const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
       return;
     }
     api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, async (response) => {
@@ -169,7 +187,7 @@ function renderProblems() {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
     const dn = (p.number ? p.number + ". " : "") + p.name;
-    const th = p.url ? `<a href="${p.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${dn}</a>` : dn;
+    const th = p.url ? `<a href="${p.url}" target="_blank" style="color: var(--green); text-decoration: none; border-bottom: 1px dashed var(--green);">${dn}</a>` : dn;
     r.innerHTML = `<div class="problem-header"><span>${th}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
     <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
     <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
@@ -219,24 +237,18 @@ async function logToHistory(prob, elapsed) {
 
 let currentHistory = [];
 async function renderHistory() {
-  const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history');
-  currentHistory = d.leetcode_history || [];
-  if (!l) return;
-  filterHistory();
+  const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || [];
+  if (!l) return; filterHistory();
 }
 
 function filterHistory() {
-  const l = document.getElementById('log-list');
-  const query = document.getElementById('history-search').value.toLowerCase();
+  const l = document.getElementById('log-list'); const query = document.getElementById('history-search').value.toLowerCase();
   const filtered = currentHistory.filter(i => (i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query))));
-  
   if (filtered.length === 0) { l.innerHTML = '<div style="opacity: 0.5; padding: 10px;">No results found.</div>'; return; }
-  
-  l.innerHTML = filtered.map((i, originalIdx) => {
+  l.innerHTML = filtered.map(i => {
     const dn = (i.number ? i.number + ". " : "") + i.name;
-    const th = i.url ? `<a href="${i.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${dn}</a>` : dn;
-    const dd = (val) => { const d = new Date(val); const now = new Date(); if (getDateKey(d) === getDateKey(now)) return "Today " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); return d.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}); };
-    // Find index in original currentHistory for deletion
+    const th = i.url ? `<a href="${i.url}" target="_blank" style="color: var(--green); text-decoration: none; border-bottom: 1px dashed var(--green);">${dn}</a>` : dn;
+    const dd = (val) => { const date = new Date(val); if(isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}); return date.toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}); };
     const realIdx = currentHistory.indexOf(i);
     return `<div class="log-entry" style="display: flex; justify-content: space-between; align-items: flex-start;">
       <div><strong>${th}</strong>: ${i.timeStr}<br><small style="opacity: 0.6;">${dd(i.timestamp)}</small></div>
@@ -246,41 +258,38 @@ function filterHistory() {
 }
 
 document.getElementById('history-search').addEventListener('input', filterHistory);
-
 document.getElementById('log-list').addEventListener('click', async (e) => {
   if (e.target.dataset.action === 'delete-history') {
-    const idx = parseInt(e.target.dataset.index);
-    if (confirm('Delete this entry?')) {
-      currentHistory.splice(idx, 1);
-      await activeStorage.set({ leetcode_history: currentHistory });
-      filterHistory();
-    }
+    const idx = parseInt(e.target.dataset.index); if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
   }
 });
 
 document.getElementById('export-csv').addEventListener('click', async () => {
-  const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  if (h.length === 0) return;
+  const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || []; if (h.length === 0) return;
   let csv = 'Number,Name,Time,URL,ISO_Date,Local_Time\n';
   h.forEach(i => { const date = new Date(i.timestamp); csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${date.toISOString()}","${date.toLocaleString()}"\n`; });
   const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_study_logs.csv'; a.click();
 });
 
+// --- Stats ---
 let hChart, aChart, hoChart;
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
   const logs = d.leetcode_history || []; const curr = d.leetcode_problems || [];
+  const isLight = document.body.classList.contains('light-mode');
+  const mainGreen = isLight ? '#008000' : '#00ff00';
+  const gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
+
   const totalMs = logs.reduce((s, l) => s + (l.elapsedMs || parseTimeToMs(l.timeStr)), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
   const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
   let streak = 0; if (days.length > 0) {
-    let check = new Date(); check.setHours(0,0,0,0);
-    const todayK = getDateKey(check); const yesterdayK = getDateKey(new Date(check.getTime() - 86400000));
-    if (days[0] === todayK || days[0] === yesterdayK) {
-      let curC = (days[0] === todayK) ? check : new Date(check.getTime() - 86400000);
+    let c = new Date(); c.setHours(0,0,0,0);
+    if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime() - 86400000))) {
+      let curC = (days[0] === getDateKey(c)) ? c : new Date(c.getTime() - 86400000);
       for (let day of days) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
     }
   }
@@ -288,22 +297,24 @@ async function renderStats() {
 
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
   const dailyMins = l7k.map(k => { const ms = logs.filter(l => getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr)), 0); return parseFloat((ms/60000).toFixed(2)); });
-  const ctxH = document.getElementById('progressChart');
-  if(ctxH) { if (hChart) hChart.destroy(); hChart = new Chart(ctxH, { type:'line', data:{ labels:l7l, datasets:[{ data:dailyMins, borderColor:'#0f0', backgroundColor:'rgba(0,255,0,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
+  
+  const hCtx = document.getElementById('progressChart');
+  if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'line', data:{ labels:l7l, datasets:[{ data:dailyMins, borderColor:mainGreen, backgroundColor:isLight?'rgba(0,128,0,0.1)':'rgba(0,255,0,0.1)', fill:true, tension:0.3 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
 
   const activeS = document.getElementById('active-chart-section');
   if (curr.length > 0 && activeS) {
-    activeS.style.display = 'flex'; const ctxA = document.getElementById('activeProblemsChart');
-    if(ctxA) { if (aChart) aChart.destroy(); aChart = new Chart(ctxA, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:'rgba(0,255,0,0.4)', borderColor:'#00ff00', borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:'#0f0', font:{size:9}}}, y:{ticks:{color:'#0f0', font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
+    activeS.style.display = 'flex'; const aCtx = document.getElementById('activeProblemsChart');
+    if(aCtx) { if (aChart) aChart.destroy(); aChart = new Chart(aCtx, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:9}}}, y:{ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
   } else if (activeS) activeS.style.display = 'none';
 
   const hrData = Array(24).fill(0); logs.forEach(l => { const d = new Date(l.timestamp); if (!isNaN(d.getTime())) hrData[d.getHours()]++; });
-  const ctxHo = document.getElementById('hourlyActivityChart');
-  if(ctxHo) { if (hoChart) hoChart.destroy(); hoChart = new Chart(ctxHo, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:9}}}, x:{grid:{color:'rgba(0,255,0,0.1)'}, ticks:{color:'#0f0', font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
+  const hoCtx = document.getElementById('hourlyActivityChart');
+  if(hoCtx) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCtx, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
-loadProblems(); initTimers(); requestLeetCodeTitle();
+document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
+initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
 async function init() { try { await renderHistory(); } catch(e){} } init();

@@ -133,7 +133,7 @@ document.getElementById('problems-container').addEventListener('click', async (e
   if (a === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } }
   else if (a === 'reset') { p.elapsed = 0; p.isRunning = false; }
   else if (a === 'delete') { problems.splice(i, 1); }
-  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p.name, f); problems.splice(i, 1); }
+  else if (a === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p.name, f); problems.splice(i, 1); }
   await saveProblems(); renderProblems();
 });
 

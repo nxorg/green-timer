@@ -85,11 +85,11 @@ body.light-mode #matrix-canvas {
   transform: rotate(15deg);
 }
 
-/* Toggle visibility based on theme */
-body.light-mode #sun-icon { display: block !important; }
-body.light-mode #moon-icon { display: none !important; }
-body:not(.light-mode) #sun-icon { display: none !important; }
-body:not(.light-mode) #moon-icon { display: block !important; }
+/* Toggle visibility based on theme (Opposite: show what clicking will do) */
+body.light-mode #sun-icon { display: none !important; }
+body.light-mode #moon-icon { display: block !important; }
+body:not(.light-mode) #sun-icon { display: block !important; }
+body:not(.light-mode) #moon-icon { display: none !important; }
 
 .tabs { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; flex-wrap: wrap; }
 

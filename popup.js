@@ -22,7 +22,7 @@ const activeStorage = {
   })
 };
 
-// --- Matrix Rain (Optimized) ---
+// --- Matrix Rain ---
 class MatrixRain {
   constructor() {
     this.canvas = document.getElementById('matrix-canvas');
@@ -48,7 +48,7 @@ class MatrixRain {
       if (this.drops[i] * 20 > this.canvas.height && Math.random() > 0.975) this.drops[i] = 0;
       this.drops[i]++;
     }
-    setTimeout(() => requestAnimationFrame(() => this.animate()), 50); // Locked to 20fps for CPU efficiency
+    setTimeout(() => requestAnimationFrame(() => this.animate()), 50);
   }
 }
 
@@ -59,11 +59,8 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
     btn.classList.add('active'); document.getElementById(btn.dataset.tab).classList.add('active');
-    
-    // CPU Optimization: Only animate on Stats or About tabs
     if (['stats', 'about', 'standalone-sw'].includes(btn.dataset.tab)) matrix.start();
     else matrix.stop();
-
     if (btn.dataset.tab === 'log') renderHistory();
     if (btn.dataset.tab === 'stats') renderStats();
     if (btn.dataset.tab === 'stopwatch') renderProblems();
@@ -92,13 +89,16 @@ let detectedDetails = null;
 let detectionRetries = 0;
 
 function updateProblemInput(details) {
-  if (!details) return false;
+  if (!details || !details.name) return false;
   detectedDetails = details;
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
   if (el && !el.value) {
     el.value = details.name;
-    if (statusEl) { statusEl.textContent = `✅ Detected: #${details.number || '?'}`; statusEl.style.display = 'block'; }
+    if (statusEl) {
+      statusEl.textContent = `✅ Detected: #${details.number || '?'}`;
+      statusEl.style.display = 'block';
+    }
     return true;
   }
   return false;
@@ -109,14 +109,31 @@ async function requestLeetCodeTitle() {
   try {
     const tabs = await api.tabs.query({ active: true, currentWindow: true });
     const tab = tabs[0];
-    if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) return;
+    
+    // Strict URL check: only act if on a leetcode problem page
+    if (!tab || !tab.url || !tab.url.includes('leetcode.com/problems/')) {
+      const statusEl = document.getElementById('detection-status');
+      if (statusEl) statusEl.style.display = 'none';
+      return;
+    }
+
     api.tabs.sendMessage(tab.id, { type: 'get_leetcode_details' }, async (response) => {
       if (api.runtime.lastError || !response) {
-        if (api.scripting) { try { await api.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] }); setTimeout(requestLeetCodeTitle, 300); } catch(e) {} }
-        let title = tab.title; if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
-        let num = ""; let name = title; if (title.includes('. ')) { num = title.split('. ')[0]; name = title.split('. ').slice(1).join('. '); }
+        if (api.scripting) {
+          try {
+            await api.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] });
+            setTimeout(requestLeetCodeTitle, 300);
+          } catch(e) {}
+        }
+        // Basic fallback from Tab title
+        let title = tab.title;
+        if (title.includes(' - LeetCode')) title = title.split(' - LeetCode')[0];
+        let num = ""; let name = title;
+        if (title.includes('. ')) { num = title.split('. ')[0]; name = title.split('. ').slice(1).join('. '); }
         updateProblemInput({ number: num, name: name, url: tab.url });
-      } else { updateProblemInput(response); }
+      } else {
+        updateProblemInput(response);
+      }
     });
   } catch (e) { console.error("Detection failed", e); }
 }
@@ -167,9 +184,9 @@ function renderProblems() {
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
-    const displayName = (p.number ? p.number + ". " : "") + p.name;
-    const titleHtml = p.url ? `<a href="${p.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${displayName}</a>` : displayName;
-    r.innerHTML = `<div class="problem-header"><span>${titleHtml}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
+    const dn = (p.number ? p.number + ". " : "") + p.name;
+    const th = p.url ? `<a href="${p.url}" target="_blank" style="color: #0f0; text-decoration: none; border-bottom: 1px dashed #0f0;">${dn}</a>` : dn;
+    r.innerHTML = `<div class="problem-header"><span>${th}</span><button class="btn-small" data-index="${i}" data-action="delete">X</button></div>
     <div class="problem-controls"><div class="problem-time" id="time-${i}">${formatTime(cur, true)}</div>
     <button class="btn-small" data-index="${i}" data-action="toggle">${p.isRunning ? 'PAUSE' : 'START'}</button>
     <button class="btn-small" data-index="${i}" data-action="reset">RESET</button><button class="btn-small" data-index="${i}" data-action="finish">FINISH</button></div>`;
@@ -198,11 +215,9 @@ document.getElementById('problems-container').addEventListener('click', async (e
   await saveProblems(); renderProblems(); startUIInterval();
 });
 
-// CPU Optimization: Only run interval when problems are actually running
 function startUIInterval() {
   if (uiInterval) clearInterval(uiInterval);
-  const running = problems.some(p => p.isRunning);
-  if (!running) return;
+  if (!problems.some(p => p.isRunning)) return;
   uiInterval = setInterval(() => {
     problems.forEach((p, i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now() - p.startTime, true); } });
   }, 100);
@@ -211,7 +226,7 @@ function startUIInterval() {
 // --- Listeners ---
 api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details') updateProblemInput(msg.details); });
 
-// --- History & CSV ---
+// --- History & Stats ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
   h.unshift({ name: prob.name, number: prob.number, url: prob.url, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
@@ -248,9 +263,10 @@ async function renderStats() {
 
   const days = [...new Set(logs.map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
   let streak = 0; if (days.length > 0) {
-    let c = new Date(); c.setHours(0,0,0,0);
-    if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime() - 86400000))) {
-      let curC = (days[0] === getDateKey(c)) ? c : new Date(c.getTime() - 86400000);
+    let check = new Date(); check.setHours(0,0,0,0);
+    const todayK = getDateKey(check); const yesterdayK = getDateKey(new Date(check.getTime() - 86400000));
+    if (days[0] === todayK || days[0] === yesterdayK) {
+      let curC = (days[0] === todayK) ? check : new Date(check.getTime() - 86400000);
       for (let day of days) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
     }
   }

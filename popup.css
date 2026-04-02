@@ -254,5 +254,85 @@ button:hover { background: var(--green); color: #000000; border-color: var(--gre
   color: #eeeeee;
 }
 
+/* About Page */
+.about-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 15px;
+  margin-bottom: 10px;
+}
+
+.about-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.about-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.about-card-small {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  text-align: center;
+}
+
+.card-icon {
+  font-size: 1.2em;
+  margin-bottom: 5px;
+}
+
+.card-title {
+  font-weight: bold;
+  font-size: 0.75em;
+  color: var(--green);
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.card-desc {
+  font-size: 0.6em;
+  opacity: 0.7;
+  line-height: 1.2;
+}
+
+.promise-box {
+  background: rgba(0, 255, 0, 0.05);
+  border-left: 3px solid var(--green);
+  padding: 10px;
+  margin-bottom: 15px;
+}
+
+.about-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.about-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  color: var(--text-color);
+  text-decoration: none;
+  font-size: 0.75em;
+  font-weight: bold;
+}
+
+.about-link:hover {
+  background: var(--green);
+  color: #000000;
+}
+
 a { color: var(--green); text-decoration: none; }
 a:hover { text-decoration: underline; }

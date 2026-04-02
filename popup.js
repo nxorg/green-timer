@@ -28,9 +28,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
 const activeStorage = {
-  get: (keys) => new Promise(res => {
+  get: (keys) => new Promise((res, rej) => {
     if (storageAPI) { 
-      storageAPI.get(keys, d => res(d || {})); 
+      storageAPI.get(keys, d => {
+        if (api.runtime.lastError) rej(api.runtime.lastError);
+        else res(d || {});
+      }); 
     } else {
       const r = {};
       if (keys === null) {
@@ -45,12 +48,22 @@ const activeStorage = {
       res(r);
     }
   }),
-  set: (obj) => new Promise(res => {
-    if (storageAPI) { storageAPI.set(obj, () => res()); }
-    else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); }
+  set: (obj) => new Promise((res, rej) => {
+    if (storageAPI) { 
+      storageAPI.set(obj, () => {
+        if (api.runtime.lastError) rej(api.runtime.lastError);
+        else res();
+      }); 
+    }
+    else { try { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } catch(e) { rej(e); } }
   }),
-  clear: () => new Promise(res => {
-    if (storageAPI) { storageAPI.clear(() => res()); }
+  clear: () => new Promise((res, rej) => {
+    if (storageAPI) { 
+      storageAPI.clear(() => {
+        if (api.runtime.lastError) rej(api.runtime.lastError);
+        else res();
+      }); 
+    }
     else { localStorage.clear(); res(); }
   })
 };
@@ -504,6 +517,7 @@ document.getElementById('import-file').addEventListener('change', (e) => {
     } catch (err) { alert('Error: ' + err.message); }
   };
   reader.readAsText(file);
+  e.target.value = ''; // Reset to allow re-selecting same file
 });
 
 function playBeep() {

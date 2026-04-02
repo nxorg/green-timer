@@ -7,24 +7,39 @@
 const api = (typeof browser !== 'undefined') ? browser : chrome;
 
 // Update version immediately from manifest
-try {
-  document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
-} catch (e) {}
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
+  } catch (e) {}
+});
 
 const storageAPI = api.storage ? api.storage.sync : null;
 
 const activeStorage = {
   get: (keys) => new Promise(res => {
-    if (storageAPI) { storageAPI.get(keys, d => res(d || {})); }
-    else {
-      const r = {}; const ka = Array.isArray(keys) ? keys : [keys];
-      ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} });
+    if (storageAPI) { 
+      storageAPI.get(keys, d => res(d || {})); 
+    } else {
+      const r = {};
+      if (keys === null) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          try { r[k] = JSON.parse(localStorage.getItem(k)); } catch(e) {}
+        }
+      } else {
+        const ka = Array.isArray(keys) ? keys : [keys];
+        ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){r[k]=null;} });
+      }
       res(r);
     }
   }),
   set: (obj) => new Promise(res => {
     if (storageAPI) { storageAPI.set(obj, () => res()); }
     else { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); }
+  }),
+  clear: () => new Promise(res => {
+    if (storageAPI) { storageAPI.clear(() => res()); }
+    else { localStorage.clear(); res(); }
   })
 };
 
@@ -159,7 +174,7 @@ function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const tl = timerTargetTime - Date.now();
-    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00.00'; }
+    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00.00'; playBeep(); }
     else { document.getElementById('timer-display').textContent = formatTime(tl, true); }
   }, 50);
 }
@@ -349,7 +364,7 @@ document.getElementById('export-csv').addEventListener('click', async () => {
 });
 
 // --- Stats ---
-let hChart, mChart, aChart, hoChart;
+let hChart, mChart, aChart, hoChart, dChart;
 let selectedHeatmapYear = 'rolling';
 document.getElementById('heatmap-year-selector').addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
 
@@ -392,6 +407,12 @@ async function renderStats() {
   const mainGreen = isLight ? '#008000' : '#00ff00';
   const gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
   renderHeatmap(logs, isLight, mainGreen);
+  
+  const diffCounts = { easy: 0, medium: 0, hard: 0 };
+  logs.forEach(l => { if (l && l.difficulty) { const dLow = l.difficulty.toLowerCase(); if (dLow.includes('easy')) diffCounts.easy++; else if (dLow.includes('medium')) diffCounts.medium++; else if (dLow.includes('hard')) diffCounts.hard++; } });
+  const dCtx = document.getElementById('difficultyChart');
+  if (dCtx) { if (dChart) dChart.destroy(); dChart = new Chart(dCtx, { type: 'doughnut', data: { labels: ['Easy', 'Medium', 'Hard'], datasets: [{ data: [diffCounts.easy, diffCounts.medium, diffCounts.hard], backgroundColor: ['#00af9b', '#ffb800', '#ff2d55'], borderWidth: 0, hoverOffset: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: isLight ? '#333' : '#fff', font: { size: 10 } } } } } }); }
+
   const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
   const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
   const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
@@ -463,13 +484,27 @@ document.getElementById('import-file').addEventListener('change', (e) => {
     try {
       const data = JSON.parse(ev.target.result);
       if (confirm('Importing will overwrite current data. Continue?')) {
+        await activeStorage.clear();
         await activeStorage.set(data);
+        alert('Data restored successfully!');
         window.location.reload();
       }
-    } catch (err) { alert('Invalid backup file.'); }
+    } catch (err) { alert('Error: ' + err.message); }
   };
   reader.readAsText(file);
 });
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square'; osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    osc.start(); osc.stop(ctx.currentTime + 0.2);
+  } catch(e) {}
+}
 
 // --- Init ---
 initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();

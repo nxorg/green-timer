@@ -190,6 +190,17 @@ function renderProblems() {
   const c = document.getElementById('problems-container');
   if (!c) return;
   c.replaceChildren();
+  
+  if (problems.length === 0) {
+    const welcome = document.createElement('div');
+    welcome.style.textAlign = 'center'; welcome.style.padding = '40px 20px'; welcome.style.opacity = '0.6';
+    welcome.innerHTML = `<div style="font-size: 2em; margin-bottom: 10px;">👋</div>
+      <div style="font-weight: bold; color: var(--green);">Welcome, Coder!</div>
+      <div style="font-size: 0.8em; margin-top: 5px;">Add a LeetCode problem above to start tracking your journey.</div>`;
+    c.appendChild(welcome);
+    return;
+  }
+
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
@@ -417,6 +428,25 @@ async function renderStats() {
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+
+// --- Shortcuts ---
+window.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    const activeTab = document.querySelector('.tab-content.active').id;
+    if (activeTab === 'stopwatch') {
+      const firstBtn = document.querySelector('.problem-controls button');
+      if (firstBtn) firstBtn.click();
+    } else if (activeTab === 'standalone-sw') {
+      const startBtn = document.getElementById('sw-start');
+      const pauseBtn = document.getElementById('sw-pause');
+      if (swInterval) pauseBtn.click(); else startBtn.click();
+    } else if (activeTab === 'timer') {
+      document.getElementById('timer-start').click();
+    }
+  }
+});
 
 // --- Init ---
 initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();

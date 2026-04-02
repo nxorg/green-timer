@@ -125,9 +125,12 @@
         <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 6px;">
       </div>
       <div id="log-list" style="flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;"></div>
-      <div class="controls" style="margin-top: 10px; flex-shrink: 0; display: flex; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 10px; padding-bottom: 5px;">
-        <button id="export-csv" style="flex: 1;">Export CSV</button>
-        <button id="clear-log" style="flex: 1;">Clear All</button>
+      <div class="controls" style="margin-top: 10px; flex-shrink: 0; display: flex; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border-color); padding-top: 10px; padding-bottom: 5px;">
+        <button id="export-csv" style="flex: 1; font-size: 0.7em; padding: 6px;">CSV EXPORT</button>
+        <button id="export-json" style="flex: 1; font-size: 0.7em; padding: 6px;">JSON BACKUP</button>
+        <button id="import-json" style="flex: 1; font-size: 0.7em; padding: 6px;">RESTORE</button>
+        <button id="clear-log" style="flex: 1; font-size: 0.7em; padding: 6px; color: #ff0000; border-color: rgba(255,0,0,0.3);">CLEAR ALL</button>
+        <input type="file" id="import-file" style="display: none;" accept=".json">
       </div>
     </div>
 

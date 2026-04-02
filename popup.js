@@ -7,13 +7,25 @@
 const api = (typeof browser !== 'undefined') ? browser : chrome;
 
 // Update version immediately from manifest
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   try {
     document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
   } catch (e) {}
+  
+  // Migration Check: If local is empty but sync has data, migrate it.
+  if (api.storage && api.storage.local && api.storage.sync) {
+    const localData = await api.storage.local.get(null);
+    if (Object.keys(localData).length === 0) {
+      const syncData = await api.storage.sync.get(null);
+      if (Object.keys(syncData).length > 0) {
+        await api.storage.local.set(syncData);
+        console.log("Data migrated to local storage.");
+      }
+    }
+  }
 });
 
-const storageAPI = api.storage ? api.storage.sync : null;
+const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
 const activeStorage = {
   get: (keys) => new Promise(res => {

@@ -7,7 +7,8 @@ function getDateKey(val) {
 
 // Function to update the icon badge with Solved and Running counts
 async function updateBadge() {
-  const data = await chrome.storage.sync.get(['leetcode_history', 'leetcode_problems']);
+  const storage = chrome.storage.local || chrome.storage.sync;
+  const data = await storage.get(['leetcode_history', 'leetcode_problems']);
   
   // 1. Calculate Solved Today
   const logs = data.leetcode_history || [];
@@ -31,7 +32,7 @@ async function updateBadge() {
   const action = chrome.action || chrome.browserAction;
   if (action) {
     action.setBadgeText({ text: badgeText });
-    action.setBadgeBackgroundColor({ color: "#FF0000" }); // Keep it Red as requested
+    action.setBadgeBackgroundColor({ color: "#FF0000" });
     if (action.setBadgeTextColor) action.setBadgeTextColor({ color: "#FFFFFF" });
   }
 }
@@ -60,7 +61,8 @@ function setupDailyAlarm() {
 }
 
 async function showDailySummary() {
-  const data = await chrome.storage.sync.get(['leetcode_history']);
+  const storage = chrome.storage.local || chrome.storage.sync;
+  const data = await storage.get(['leetcode_history']);
   const logs = data.leetcode_history || [];
   const todayK = getDateKey(new Date());
   const todayLogs = logs.filter(l => getDateKey(l.timestamp) === todayK);
@@ -84,31 +86,28 @@ async function showDailySummary() {
       priority: 1
     });
   }
-  // Setup next day alarm
   setupDailyAlarm();
 }
 
 // Show a quick notification when a new problem is finished
 chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && (changes.leetcode_history || changes.leetcode_problems)) {
-    updateBadge();
-    
-    if (changes.leetcode_history && changes.leetcode_history.newValue) {
-      const oldVal = changes.leetcode_history.oldValue || [];
-      const newVal = changes.leetcode_history.newValue;
-      if (newVal.length > oldVal.length) {
-        const latest = newVal[0];
-        const todayK = getDateKey(new Date());
-        const todayCount = newVal.filter(l => getDateKey(l.timestamp) === todayK).length;
-        
-        chrome.notifications.create({
-          type: 'basic',
-          iconUrl: 'icons/icon-128.png',
-          title: "Problem Finished!",
-          message: `Saved "${latest.name}". This is your #${todayCount} problem today!`,
-          priority: 1
-        });
-      }
+  updateBadge();
+  
+  if (changes.leetcode_history && changes.leetcode_history.newValue) {
+    const oldVal = changes.leetcode_history.oldValue || [];
+    const newVal = changes.leetcode_history.newValue;
+    if (newVal.length > oldVal.length) {
+      const latest = newVal[0];
+      const todayK = getDateKey(new Date());
+      const todayCount = newVal.filter(l => getDateKey(l.timestamp) === todayK).length;
+      
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'icons/icon-128.png',
+        title: "Problem Finished!",
+        message: `Saved "${latest.name}". This is your #${todayCount} problem today!`,
+        priority: 1
+      });
     }
   }
 });

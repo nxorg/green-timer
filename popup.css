@@ -113,11 +113,14 @@ body.light-mode #moon-icon { display: block !important; }
 body:not(.light-mode) #sun-icon { display: block !important; }
 body:not(.light-mode) #moon-icon { display: none !important; }
 
-.tabs { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; flex-wrap: wrap; }
+.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; }
 
 .tab-btn {
+  flex: 1;
   background: none; border: none; color: var(--green); font-family: inherit;
-  font-size: 0.7em; padding: 6px; cursor: pointer; opacity: 0.5; transition: 0.3s;
+  font-size: 0.7em; padding: 8px 2px; cursor: pointer; opacity: 0.5; transition: 0.3s;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--border-color); text-shadow: var(--glow); }

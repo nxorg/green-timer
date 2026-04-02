@@ -614,11 +614,29 @@ document.getElementById('export-csv').addEventListener('click', async () => {
 
 // --- Stats ---
 let hChart, mChart, aChart, hoChart;
+let selectedHeatmapYear = 'rolling';
+
+document.getElementById('heatmap-year-selector').addEventListener('change', (e) => {
+  selectedHeatmapYear = e.target.value;
+  renderStats();
+});
 
 function renderHeatmap(logs, isLight, mainGreen) {
   const canvas = document.getElementById('contributionHeatmap');
   const section = document.getElementById('heatmap-section');
-  if (!canvas || !section) return;
+  const selector = document.getElementById('heatmap-year-selector');
+  if (!canvas || !section || !selector) return;
+
+  // Populate Year Selector dynamically
+  const years = [...new Set(logs.filter(l => l && l.timestamp).map(l => new Date(l.timestamp).getFullYear()))].sort((a,b) => b-a);
+  const currentOptions = Array.from(selector.options).map(o => o.value);
+  years.forEach(y => {
+    if (!currentOptions.includes(y.toString())) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y;
+      selector.appendChild(opt);
+    }
+  });
 
   const ctx = canvas.getContext('2d');
   const boxSize = 7;
@@ -628,25 +646,29 @@ function renderHeatmap(logs, isLight, mainGreen) {
   const topPadding = 15;
   const leftPadding = 20;
   
-  canvas.width = (weeks * (boxSize + gap)) + leftPadding;
+  canvas.width = (weeks * (boxSize + gap)) + leftPadding + 50; 
   canvas.height = (days * (boxSize + gap)) + topPadding;
   
   const now = new Date();
-  const year = now.getFullYear();
-  
-  const startOfYear = new Date(year, 0, 1);
-  const startDay = startOfYear.getDay(); // 0 = Sun
-  const firstSunday = new Date(startOfYear);
-  firstSunday.setDate(startOfYear.getDate() - startDay);
+  let startDate, endDate;
+
+  if (selectedHeatmapYear === 'rolling') {
+    startDate = new Date(now);
+    startDate.setDate(now.getDate() - 365);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // Align to Sun
+    endDate = now;
+  } else {
+    const yr = parseInt(selectedHeatmapYear);
+    startDate = new Date(yr, 0, 1);
+    startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from first Sunday (may be in previous year)
+    endDate = new Date(yr, 11, 31);
+  }
   
   const dailyData = {};
   logs.forEach(l => {
     if (l && l.timestamp) {
-      const d = new Date(l.timestamp);
-      if (d.getFullYear() === year) {
-        const k = getDateKey(l.timestamp);
-        dailyData[k] = (dailyData[k] || 0) + 1;
-      }
+      const k = getDateKey(l.timestamp);
+      dailyData[k] = (dailyData[k] || 0) + 1;
     }
   });
 
@@ -660,15 +682,17 @@ function renderHeatmap(logs, isLight, mainGreen) {
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   let lastMonth = -1;
+  let extraGap = 0;
 
   for (let w = 0; w < weeks; w++) {
-    const weekStartDate = new Date(firstSunday);
-    weekStartDate.setDate(firstSunday.getDate() + (w * 7));
+    const weekStartDate = new Date(startDate);
+    weekStartDate.setDate(startDate.getDate() + (w * 7));
     
     const currentMonth = weekStartDate.getMonth();
-    if (currentMonth !== lastMonth && w < 52) {
+    if (currentMonth !== lastMonth) {
+      if (lastMonth !== -1) extraGap += 4;
       ctx.fillStyle = isLight ? '#666' : '#999';
-      ctx.fillText(monthNames[currentMonth], leftPadding + w * (boxSize + gap), 10);
+      ctx.fillText(monthNames[currentMonth], leftPadding + w * (boxSize + gap) + extraGap, 10);
       lastMonth = currentMonth;
     }
 
@@ -676,10 +700,7 @@ function renderHeatmap(logs, isLight, mainGreen) {
       const date = new Date(weekStartDate);
       date.setDate(weekStartDate.getDate() + d);
       
-      if (date.getFullYear() !== year) {
-        if (date < startOfYear) continue;
-        if (date > now) continue;
-      }
+      if (date > endDate || (selectedHeatmapYear !== 'rolling' && date.getFullYear() > parseInt(selectedHeatmapYear))) continue;
       
       const k = getDateKey(date);
       const count = dailyData[k] || 0;
@@ -694,7 +715,7 @@ function renderHeatmap(logs, isLight, mainGreen) {
         ctx.fillStyle = mainGreen;
       }
       
-      ctx.fillRect(leftPadding + w * (boxSize + gap), topPadding + d * (boxSize + gap), boxSize, boxSize);
+      ctx.fillRect(leftPadding + w * (boxSize + gap) + extraGap, topPadding + d * (boxSize + gap), boxSize, boxSize);
     }
   }
 }

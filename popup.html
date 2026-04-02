@@ -87,7 +87,12 @@
 
       <!-- YEAR: Heatmap -->
       <div id="heatmap-section">
-        <div class="chart-label">Yearly Contribution Heatmap</div>
+        <div class="chart-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>Yearly Contribution Heatmap</span>
+          <select id="heatmap-year-selector" style="font-size: 0.8em; padding: 2px; width: auto; background: transparent; border: 1px solid var(--border-color); color: var(--green);">
+            <option value="rolling">Rolling 12m</option>
+          </select>
+        </div>
         <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 8px; overflow-x: auto;">
           <canvas id="contributionHeatmap" height="85"></canvas>
         </div>

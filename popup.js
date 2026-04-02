@@ -445,58 +445,56 @@ function filterHistory() {
 
     const entry = document.createElement('div');
     entry.className = 'log-entry';
-    entry.style.display = 'flex';
-    entry.style.flexDirection = 'column';
-    entry.style.gap = '4px';
 
-    const row = document.createElement('div');
-    row.style.display = 'flex';
-    row.style.justifyContent = 'space-between';
-    row.style.alignItems = 'flex-start';
+    const topRow = document.createElement('div');
+    topRow.className = 'log-entry-row';
 
     const left = document.createElement('div');
+    left.style.flex = "1";
 
-    const strong = document.createElement('strong');
+    const title = document.createElement('div');
+    title.className = 'log-entry-title';
 
     if (i.url) {
       const a = document.createElement('a');
       a.href = i.url;
       a.target = '_blank';
-      a.style.color = 'var(--green)';
-      a.style.textDecoration = 'none';
-      a.style.borderBottom = '1px dashed var(--green)';
       a.textContent = dn;
-      strong.appendChild(a);
+      title.appendChild(a);
     } else {
-      strong.textContent = dn;
+      title.textContent = dn;
     }
     
-    left.appendChild(strong);
+    left.appendChild(title);
 
-    // Difficulty Badge
+    const meta = document.createElement('div');
+    meta.className = 'log-entry-meta';
+    
     if (i.difficulty) {
       const badge = document.createElement('span');
-      badge.style.fontSize = '0.7em';
-      badge.style.marginLeft = '8px';
-      badge.style.padding = '1px 5px';
-      badge.style.border = '1px solid';
-      badge.style.fontWeight = 'bold';
+      badge.className = 'difficulty-badge';
+      badge.style.marginRight = '8px';
       badge.textContent = i.difficulty;
       
       const d = i.difficulty.toLowerCase();
       if (d.includes('easy')) { badge.style.color = '#00af9b'; badge.style.borderColor = '#00af9b'; }
       else if (d.includes('medium')) { badge.style.color = '#ffb800'; badge.style.borderColor = '#ffb800'; }
       else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
-      else { badge.style.color = 'var(--green)'; badge.style.borderColor = 'var(--green)'; }
-      
-      left.appendChild(badge);
+      meta.appendChild(badge);
     }
 
-    const timeText = document.createTextNode(`: ${i.timeStr}`);
-    left.appendChild(timeText);
+    const timeSpan = document.createElement('span');
+    timeSpan.style.fontWeight = "bold";
+    timeSpan.style.color = "var(--text-color)";
+    timeSpan.textContent = i.timeStr;
+    meta.appendChild(timeSpan);
 
-    const br = document.createElement('br');
-    left.appendChild(br);
+    const dateSpan = document.createElement('span');
+    dateSpan.style.marginLeft = "8px";
+    dateSpan.textContent = dd(i.timestamp);
+    meta.appendChild(dateSpan);
+
+    left.appendChild(meta);
 
     const btnRow = document.createElement('div');
     btnRow.style.display = 'flex';
@@ -518,7 +516,6 @@ function filterHistory() {
     delBtn.className = 'btn-small';
     delBtn.textContent = 'X';
     delBtn.style.color = '#ff0000';
-    delBtn.style.borderColor = 'rgba(255,0,0,0.3)';
     delBtn.dataset.index = realIdx;
     delBtn.dataset.action = 'delete-history';
 
@@ -526,10 +523,10 @@ function filterHistory() {
     btnRow.appendChild(copyBtn);
     btnRow.appendChild(delBtn);
 
-    row.appendChild(left);
-    row.appendChild(btnRow);
+    topRow.appendChild(left);
+    topRow.appendChild(btnRow);
 
-    entry.appendChild(row);
+    entry.appendChild(topRow);
 
     const nContainer = document.createElement('div');
     nContainer.id = `history-note-container-${realIdx}`;
@@ -539,17 +536,16 @@ function filterHistory() {
       toggleNotesBtn.className = 'btn-small';
       toggleNotesBtn.style.width = '100%';
       toggleNotesBtn.style.marginTop = '4px';
-      toggleNotesBtn.style.textAlign = 'left';
+      toggleNotesBtn.style.textAlign = 'center';
       toggleNotesBtn.style.fontSize = '0.7em';
-      toggleNotesBtn.style.opacity = '0.7';
-      toggleNotesBtn.textContent = '▶ VIEW NOTES/CODE';
+      toggleNotesBtn.textContent = '▶ VIEW NOTES / CODE';
       toggleNotesBtn.dataset.index = realIdx;
       toggleNotesBtn.dataset.action = 'toggle-history-display';
       
       const nDisplay = document.createElement('div');
       nDisplay.className = 'history-notes';
       nDisplay.id = `history-note-display-${realIdx}`;
-      nDisplay.style.display = 'none'; // Hidden by default
+      nDisplay.style.display = 'none';
       nDisplay.innerHTML = formatMarkdown(i.notes);
       
       nContainer.appendChild(toggleNotesBtn);

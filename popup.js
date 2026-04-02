@@ -156,9 +156,9 @@ function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const tl = timerTargetTime - Date.now();
-    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00'; }
-    else { document.getElementById('timer-display').textContent = formatTime(tl); }
-  }, 1000);
+    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00.00'; }
+    else { document.getElementById('timer-display').textContent = formatTime(tl, true); }
+  }, 50);
 }
 
 document.getElementById('timer-start').addEventListener('click', async () => {

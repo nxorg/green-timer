@@ -124,14 +124,20 @@
 
     <!-- 4. Standalone Stopwatch Section -->
     <div id="standalone-sw" class="tab-content">
-      <div class="display" id="sw-display">00:00:00.00</div>
-      <div class="controls"><button id="sw-start">Start</button><button id="sw-pause">Pause</button><button id="sw-reset">Reset</button></div>
+      <div class="timer-card">
+        <div class="display" id="sw-display">00:00:00.00</div>
+        <div class="controls-row" style="margin-top: 15px;">
+          <button id="sw-start" class="btn-main">START</button>
+          <button id="sw-pause" class="btn-outline">PAUSE</button>
+          <button id="sw-reset" class="btn-outline">RESET</button>
+        </div>
+      </div>
     </div>
 
     <!-- 5. Timer Section -->
     <div id="timer" class="tab-content">
       <div class="timer-card">
-        <div class="display" id="timer-display">00:00:00</div>
+        <div class="display" id="timer-display">00:00:00.00</div>
         <div class="input-group">
           <div class="custom-number-input">
             <button id="timer-dec" class="btn-step">-</button>

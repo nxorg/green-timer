@@ -59,17 +59,48 @@
 
     <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
-      <div class="chart-section" id="active-chart-section" style="display: none; margin-bottom: 15px;">
-        <div class="chart-label">Active Problems (Mins)</div>
-        <div class="chart-container"><canvas id="activeProblemsChart"></canvas></div>
+      <div class="stats-summary" style="flex-wrap: wrap; gap: 5px;">
+        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Today</div></div>
+        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-week">0</div><div class="stat-label">Week</div></div>
+        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-month">0</div><div class="stat-label">Month</div></div>
+        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-year">0</div><div class="stat-label">Year</div></div>
+        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="current-streak">0</div><div class="stat-label">Streak</div></div>
       </div>
-      <div class="stats-summary">
-        <div class="stat-card"><div class="stat-value" id="total-problems">0</div><div class="stat-label">Problems</div></div>
-        <div class="stat-card"><div class="stat-value" id="current-streak">0</div><div class="stat-label">Streak</div></div>
-        <div class="stat-card"><div class="stat-value" id="total-time-spent">0s</div><div class="stat-label">Total Time</div></div>
+
+      <!-- DAY: Hourly -->
+      <div class="chart-section">
+        <div class="chart-label">Today's Hourly Activity</div>
+        <div class="chart-container" style="height: 100px;"><canvas id="hourlyActivityChart"></canvas></div>
       </div>
-      <div class="chart-section"><div class="chart-label">7-Day Progress</div><div class="chart-container"><canvas id="progressChart"></canvas></div></div>
-      <div class="chart-section" style="margin-top: 15px;"><div class="chart-label">Hourly Activity</div><div class="chart-container"><canvas id="hourlyActivityChart"></canvas></div></div>
+
+      <!-- WEEK: 7-Day -->
+      <div class="chart-section">
+        <div class="chart-label">7-Day Problem Counts</div>
+        <div class="chart-container" style="height: 100px;"><canvas id="progressChart"></canvas></div>
+      </div>
+
+      <!-- MONTH: 30-Day -->
+      <div class="chart-section">
+        <div class="chart-label">30-Day Problem Counts</div>
+        <div class="chart-container" style="height: 100px;"><canvas id="monthProgressChart"></canvas></div>
+      </div>
+
+      <!-- YEAR: Heatmap -->
+      <div id="heatmap-section">
+        <div class="chart-label">Yearly Contribution Heatmap</div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 8px; overflow-x: auto;">
+          <canvas id="contributionHeatmap" height="85"></canvas>
+        </div>
+      </div>
+
+      <div class="chart-section" id="active-chart-section" style="display: none; margin-top: 10px;">
+        <div class="chart-label">Currently Tracking (Mins)</div>
+        <div class="chart-container" style="height: 100px;"><canvas id="activeProblemsChart"></canvas></div>
+      </div>
+      
+      <div style="font-size: 0.7em; text-align: center; opacity: 0.6; margin-top: 10px;">
+        Total Problems: <span id="total-problems">0</span> | Total Time: <span id="total-time-spent">0s</span>
+      </div>
     </div>
 
     <!-- 3. History Section -->

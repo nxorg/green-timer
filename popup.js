@@ -199,6 +199,11 @@ function renderProblems() {
     header.className = 'problem-header';
 
     const span = document.createElement('span');
+    span.style.flexGrow = '1';
+    span.style.marginRight = '8px';
+    span.style.overflow = 'hidden';
+    span.style.textOverflow = 'ellipsis';
+    span.style.whiteSpace = 'nowrap';
 
     if (p.url) {
       const a = document.createElement('a');
@@ -213,6 +218,14 @@ function renderProblems() {
       span.textContent = dn;
     }
 
+    const notesBtn = document.createElement('button');
+    notesBtn.className = 'btn-small';
+    notesBtn.style.marginRight = '5px';
+    notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE');
+    notesBtn.dataset.index = i;
+    notesBtn.dataset.action = 'toggle-notes';
+    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = 'var(--glow)';
+
     const delBtn = document.createElement('button');
     delBtn.className = 'btn-small';
     delBtn.textContent = 'X';
@@ -220,6 +233,7 @@ function renderProblems() {
     delBtn.dataset.action = 'delete';
 
     header.appendChild(span);
+    header.appendChild(notesBtn);
     header.appendChild(delBtn);
 
     // Controls
@@ -249,18 +263,10 @@ function renderProblems() {
     finishBtn.dataset.index = i;
     finishBtn.dataset.action = 'finish';
 
-    const notesBtn = document.createElement('button');
-    notesBtn.className = 'btn-small';
-    notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE');
-    notesBtn.dataset.index = i;
-    notesBtn.dataset.action = 'toggle-notes';
-    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = 'var(--glow)';
-
     controls.appendChild(time);
     controls.appendChild(toggleBtn);
     controls.appendChild(resetBtn);
     controls.appendChild(finishBtn);
-    controls.appendChild(notesBtn);
 
     r.appendChild(header);
     r.appendChild(controls);
@@ -549,7 +555,7 @@ document.getElementById('log-list').addEventListener('click', async (e) => {
   const action = e.target.dataset.action;
   const idx = parseInt(e.target.dataset.index);
   if (action === 'delete-history') {
-    if (confirm('Delete this entry?')) { currentHistory.splice(idx).splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
+    if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
   } else if (action === 'toggle-history-display') {
     const display = document.getElementById(`history-note-display-${idx}`);
     if (display) {
@@ -607,7 +613,92 @@ document.getElementById('export-csv').addEventListener('click', async () => {
 });
 
 // --- Stats ---
-let hChart, aChart, hoChart;
+let hChart, mChart, aChart, hoChart;
+
+function renderHeatmap(logs, isLight, mainGreen) {
+  const canvas = document.getElementById('contributionHeatmap');
+  const section = document.getElementById('heatmap-section');
+  if (!canvas || !section) return;
+
+  const ctx = canvas.getContext('2d');
+  const boxSize = 7;
+  const gap = 2;
+  const weeks = 53;
+  const days = 7;
+  const topPadding = 15;
+  const leftPadding = 20;
+  
+  canvas.width = (weeks * (boxSize + gap)) + leftPadding;
+  canvas.height = (days * (boxSize + gap)) + topPadding;
+  
+  const now = new Date();
+  const year = now.getFullYear();
+  
+  const startOfYear = new Date(year, 0, 1);
+  const startDay = startOfYear.getDay(); // 0 = Sun
+  const firstSunday = new Date(startOfYear);
+  firstSunday.setDate(startOfYear.getDate() - startDay);
+  
+  const dailyData = {};
+  logs.forEach(l => {
+    if (l && l.timestamp) {
+      const d = new Date(l.timestamp);
+      if (d.getFullYear() === year) {
+        const k = getDateKey(l.timestamp);
+        dailyData[k] = (dailyData[k] || 0) + 1;
+      }
+    }
+  });
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  ctx.fillStyle = isLight ? '#666' : '#999';
+  ctx.font = '7px sans-serif';
+  ['M', 'W', 'F'].forEach((day, i) => {
+    ctx.fillText(day, 0, topPadding + (i * 2 + 2) * (boxSize + gap) - 2);
+  });
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  let lastMonth = -1;
+
+  for (let w = 0; w < weeks; w++) {
+    const weekStartDate = new Date(firstSunday);
+    weekStartDate.setDate(firstSunday.getDate() + (w * 7));
+    
+    const currentMonth = weekStartDate.getMonth();
+    if (currentMonth !== lastMonth && w < 52) {
+      ctx.fillStyle = isLight ? '#666' : '#999';
+      ctx.fillText(monthNames[currentMonth], leftPadding + w * (boxSize + gap), 10);
+      lastMonth = currentMonth;
+    }
+
+    for (let d = 0; d < days; d++) {
+      const date = new Date(weekStartDate);
+      date.setDate(weekStartDate.getDate() + d);
+      
+      if (date.getFullYear() !== year) {
+        if (date < startOfYear) continue;
+        if (date > now) continue;
+      }
+      
+      const k = getDateKey(date);
+      const count = dailyData[k] || 0;
+      
+      if (count === 0) {
+        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.05)' : 'rgba(255,255,255,0.05)';
+      } else if (count < 2) {
+        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.3)' : 'rgba(0,255,0,0.3)';
+      } else if (count < 4) {
+        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.6)' : 'rgba(0,255,0,0.6)';
+      } else {
+        ctx.fillStyle = mainGreen;
+      }
+      
+      ctx.fillRect(leftPadding + w * (boxSize + gap), topPadding + d * (boxSize + gap), boxSize, boxSize);
+    }
+  }
+}
+
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']);
   const logs = d.leetcode_history || []; const curr = d.leetcode_problems || [];
@@ -615,38 +706,55 @@ async function renderStats() {
   const mainGreen = isLight ? '#008000' : '#00ff00';
   const gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
 
+  renderHeatmap(logs, isLight, mainGreen);
+
   const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
   document.getElementById('total-problems').textContent = logs.length;
   document.getElementById('total-time-spent').textContent = formatTime(totalMs);
 
-  const days = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
-  let streak = 0; if (days.length > 0) {
+  const todayK = getDateKey(new Date());
+  const now = new Date();
+  const startOfWeek = new Date(now.getTime() - 7 * 86400000);
+  const startOfMonth = new Date(now.getTime() - 30 * 86400000);
+  const thisYear = now.getFullYear();
+
+  document.getElementById('stat-today').textContent = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  document.getElementById('stat-week').textContent = logs.filter(l => l.timestamp > startOfWeek.getTime()).length;
+  document.getElementById('stat-month').textContent = logs.filter(l => l.timestamp > startOfMonth.getTime()).length;
+  document.getElementById('stat-year').textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisYear).length;
+
+  const daysArr = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
+  let streak = 0; if (daysArr.length > 0) {
     let c = new Date(); c.setHours(0,0,0,0);
-    if (days[0] === getDateKey(c) || days[0] === getDateKey(new Date(c.getTime() - 86400000))) {
-      let curC = (days[0] === getDateKey(c)) ? c : new Date(c.getTime() - 86400000);
-      for (let day of days) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
+    if (daysArr[0] === getDateKey(c) || daysArr[0] === getDateKey(new Date(c.getTime() - 86400000))) {
+      let curC = (daysArr[0] === getDateKey(c)) ? c : new Date(c.getTime() - 86400000);
+      for (let day of daysArr) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
     }
   }
   document.getElementById('current-streak').textContent = streak;
 
+  // --- 7 Day ---
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
-  const dailyMins = l7k.map(k => {
-    const ms = logs.filter(l => l && l.timestamp && getDateKey(l.timestamp) === k).reduce((s,l)=>s+(l.elapsedMs || parseTimeToMs(l.timeStr) || 0), 0);
-    return parseFloat((ms/60000).toFixed(2));
-  });
-  
+  const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
   const hCtx = document.getElementById('progressChart');
-  if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'bar', data:{ labels:l7l, datasets:[{ data:dailyMins, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
+  if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'bar', data:{ labels:l7l, datasets:[{ data:d7Counts, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
+
+  // --- 30 Day ---
+  const l30k = []; const l30l = []; for (let i=29; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l30k.push(getDateKey(d)); l30l.push(i%5===0 ? (d.getMonth()+1)+'/'+d.getDate() : ''); }
+  const d30Counts = l30k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
+  const mCtx = document.getElementById('monthProgressChart');
+  if(mCtx) { if (mChart) mChart.destroy(); mChart = new Chart(mCtx, { type:'bar', data:{ labels:l30l, datasets:[{ data:d30Counts, backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
+
+  // --- Hourly (Day) ---
+  const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp && getDateKey(l.timestamp) === todayK) { const d = new Date(l.timestamp); hrData[d.getHours()]++; } });
+  const hoCtx = document.getElementById('hourlyActivityChart');
+  if(hoCtx) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCtx, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 
   const activeS = document.getElementById('active-chart-section');
   if (curr.length > 0 && activeS) {
     activeS.style.display = 'flex'; const aCtx = document.getElementById('activeProblemsChart');
-    if(aCtx) { if (aChart) aChart.destroy(); aChart = new Chart(aCtx, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:9}}}, y:{ticks:{color:mainGreen, font:{size:9}}} }, plugins:{legend:{display:false}} } }); }
+    if(aCtx) { if (aChart) aChart.destroy(); aChart = new Chart(aCtx, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:8}}}, y:{ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
   } else if (activeS) activeS.style.display = 'none';
-
-  const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp) { const d = new Date(l.timestamp); if (!isNaN(d.getTime())) hrData[d.getHours()]++; } });
-  const hoCtx = document.getElementById('hourlyActivityChart');
-  if(hoCtx) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCtx, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:9}}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
 }
 
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });

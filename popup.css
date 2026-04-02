@@ -112,17 +112,29 @@ body.light-mode #moon-icon { display: block !important; }
 body:not(.light-mode) #sun-icon { display: block !important; }
 body:not(.light-mode) #moon-icon { display: none !important; }
 
-.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; flex-shrink: 0; }
+.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; flex-shrink: 0; }
 
 .tab-btn {
   flex: 1;
   background: none; border: none; color: var(--green); font-family: inherit;
-  font-size: 0.7em; padding: 8px 2px; cursor: pointer; opacity: 0.5; transition: 0.3s;
+  font-size: 0.7em; padding: 10px 2px; cursor: pointer; opacity: 0.6;
   text-align: center;
   white-space: nowrap;
+  border-bottom: 3px solid transparent;
 }
 
-.tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--border-color); text-shadow: var(--glow); }
+.tab-btn:hover {
+  opacity: 1;
+  background: rgba(0, 255, 0, 0.05);
+}
+
+.tab-btn.active { 
+  opacity: 1; 
+  font-weight: bold; 
+  border-bottom: 3px solid var(--green); 
+  text-shadow: var(--glow);
+  background: rgba(0, 255, 0, 0.1);
+}
 
 .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 5px; }
 .tab-content.active { display: flex; flex-direction: column; gap: 10px; }

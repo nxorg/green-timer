@@ -349,6 +349,44 @@ button:hover { background: var(--green); color: #000000; border-color: var(--gre
   margin-top: 15px;
 }
 
+.custom-number-input {
+  display: flex;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  flex: 1;
+}
+
+.custom-number-input input {
+  border: none !important;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  padding: 0;
+  width: 100%;
+}
+
+/* Hide arrows in Chrome/Safari/Edge */
+.custom-number-input input::-webkit-outer-spin-button,
+.custom-number-input input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.btn-step {
+  background: transparent;
+  border: none;
+  color: var(--green);
+  font-size: 1.5em;
+  padding: 0 15px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.btn-step:hover {
+  background: var(--green);
+  color: #000000;
+}
+
 .btn-main {
   background: var(--green) !important;
   color: #000000 !important;

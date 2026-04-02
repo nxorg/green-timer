@@ -177,6 +177,17 @@ document.getElementById('sw-reset').addEventListener('click', async () => { clea
 
 document.querySelectorAll('.preset-card').forEach(btn => { btn.addEventListener('click', () => { document.getElementById('timer-input').value = btn.dataset.time; }); });
 
+document.getElementById('timer-inc').addEventListener('click', () => {
+  const input = document.getElementById('timer-input');
+  input.value = parseInt(input.value || 0) + 1;
+});
+
+document.getElementById('timer-dec').addEventListener('click', () => {
+  const input = document.getElementById('timer-input');
+  const val = parseInt(input.value || 0);
+  if (val > 1) input.value = val - 1;
+});
+
 // --- Problems ---
 async function loadProblems() { const d = await activeStorage.get('leetcode_problems'); problems = d.leetcode_problems || []; renderProblems(); startUIInterval(); }
 async function saveProblems() { await activeStorage.set({ leetcode_problems: problems }); }

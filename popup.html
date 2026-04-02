@@ -133,8 +133,12 @@
       <div class="timer-card">
         <div class="display" id="timer-display">00:00:00</div>
         <div class="input-group">
-          <input type="number" id="timer-input" placeholder="Minutes" min="1">
-          <button id="timer-start" class="btn-main">START TIMER</button>
+          <div class="custom-number-input">
+            <button id="timer-dec" class="btn-step">-</button>
+            <input type="number" id="timer-input" value="25" min="1" readonly>
+            <button id="timer-inc" class="btn-step">+</button>
+          </div>
+          <button id="timer-start" class="btn-main">START</button>
         </div>
       </div>
 

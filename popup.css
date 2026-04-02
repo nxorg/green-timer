@@ -8,11 +8,11 @@
   --green: #00ff00;
   --green-deep: #008000;
   --bg-dark: #0a0a0a;
-  --bg-card: rgba(26, 26, 26, 0.9);
-  --border-color: #00ff00;
-  --text-color: #00ff00;
-  --glow: 0 0 10px #00ff00;
-  --chart-grid: rgba(0, 255, 0, 0.1);
+  --bg-card: rgba(30, 30, 30, 0.9);
+  --border-color: #333333;
+  --text-color: #ffffff;
+  --glow: 0 0 10px rgba(0, 255, 0, 0.3);
+  --chart-grid: rgba(255, 255, 255, 0.05);
 }
 
 body.light-mode {
@@ -20,10 +20,10 @@ body.light-mode {
   --green-deep: #006400;
   --bg-dark: #ffffff;
   --bg-card: rgba(240, 240, 240, 0.9);
-  --border-color: #008000;
+  --border-color: #dddddd;
   --text-color: #000000;
-  --glow: 0 0 5px rgba(0, 128, 0, 0.3);
-  --chart-grid: rgba(0, 128, 0, 0.1);
+  --glow: 0 0 5px rgba(0, 128, 0, 0.2);
+  --chart-grid: rgba(0, 0, 0, 0.05);
 }
 
 * { 
@@ -36,7 +36,7 @@ body {
   background: var(--bg-dark); color: var(--text-color);
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Segoe UI Mono', monospace;
   margin: 0; padding: 0; 
-  border: 2px solid var(--border-color);
+  border: 1px solid var(--border-color);
   position: relative; overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -44,7 +44,7 @@ body {
 
 #matrix-canvas {
   position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  z-index: -1; opacity: 0.15; pointer-events: none;
+  z-index: -1; opacity: 0.1; pointer-events: none;
 }
 
 body.light-mode #matrix-canvas {
@@ -92,7 +92,7 @@ body.light-mode #matrix-canvas {
 .version {
   font-size: 0.65em;
   background: var(--green);
-  color: var(--bg-dark);
+  color: #000000;
   padding: 2px 4px;
   font-weight: 700;
 }
@@ -141,12 +141,12 @@ body.light-mode .tabs {
   flex: 1;
   background: transparent; 
   border: none; 
-  color: #ffffff; 
+  color: var(--text-color); 
   font-family: inherit;
   font-size: 0.6em; 
   padding: 8px 2px; 
   cursor: pointer; 
-  opacity: 0.6;
+  opacity: 0.5;
   text-align: center;
   white-space: nowrap;
   font-weight: bold;
@@ -155,17 +155,12 @@ body.light-mode .tabs {
 
 .tab-btn:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .tab-btn.active { 
   opacity: 1; 
-  background: var(--green-deep);
-  color: #ffffff !important;
-}
-
-body.light-mode .tab-btn {
-  color: #000000;
+  background: var(--green);
+  color: #000000 !important;
 }
 
 body.light-mode .tab-btn.active {
@@ -179,27 +174,27 @@ body.light-mode .tab-btn.active {
 /* Stats */
 .stats-summary { display: flex; justify-content: space-around; gap: 8px; margin-bottom: 5px; flex-shrink: 0; }
 .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 6px; text-align: center; flex-grow: 1; }
-.stat-value { font-size: 1.2em; font-weight: bold; text-shadow: var(--glow); color: var(--green); }
+.stat-value { font-size: 1.2em; font-weight: bold; color: var(--green); }
 .stat-label { font-size: 0.6em; opacity: 0.7; color: var(--text-color); }
 .chart-section { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
-.chart-label { font-size: 0.7em; font-weight: bold; opacity: 0.8; border-left: 2px solid var(--border-color); padding-left: 5px; }
+.chart-label { font-size: 0.7em; font-weight: bold; opacity: 0.8; border-left: 2px solid var(--green); padding-left: 5px; }
 .chart-container { background: var(--bg-card); border: 1px solid var(--border-color); padding: 5px; height: 140px; }
 
 /* Problems */
 .problem-row { border: 1px solid var(--border-color); padding: 8px; margin-bottom: 8px; background: var(--bg-card); display: flex; flex-direction: column; gap: 5px; }
-.problem-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px dashed rgba(0, 255, 0, 0.3); padding-bottom: 3px; font-size: 0.9em; }
+.problem-header { display: flex; justify-content: space-between; font-weight: bold; border-bottom: 1px dashed var(--border-color); padding-bottom: 3px; font-size: 0.9em; }
 .problem-controls { display: flex; justify-content: space-between; align-items: center; gap: 5px; }
-.problem-time { font-size: 1.1em; text-shadow: var(--glow); flex-grow: 1; color: var(--green); }
-.btn-small { padding: 3px 6px; font-size: 0.65em; border: 1px solid var(--border-color); background: transparent; color: var(--green); cursor: pointer; }
-.btn-small:hover { background: var(--green); color: var(--bg-dark); }
+.problem-time { font-size: 1.1em; flex-grow: 1; color: var(--green); font-weight: bold; }
+.btn-small { padding: 3px 6px; font-size: 0.65em; border: 1px solid var(--border-color); background: transparent; color: var(--text-color); cursor: pointer; }
+.btn-small:hover { background: var(--green); color: #000000; border-color: var(--green); }
 
 /* Form Elements */
 .display { 
   font-size: 2.2em; 
   text-align: center; 
   margin: 5px 0; 
-  text-shadow: var(--glow); 
   background: var(--bg-card); 
+  border: 1px solid var(--border-color);
   padding: 10px; 
   color: var(--green);
   font-weight: 700;
@@ -208,12 +203,12 @@ body.light-mode .tab-btn.active {
 }
 .input-row { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
 input, select { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; font-family: inherit; outline: none; width: 100%; }
-button { background: transparent; border: 1px solid var(--border-color); color: var(--green); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }
-button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(--glow); }
+button { background: transparent; border: 1px solid var(--border-color); color: var(--text-color); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }
+button:hover { background: var(--green); color: #000000; border-color: var(--green); }
 
 #problems-container, #log-list, .tab-content { 
   scrollbar-width: thin; 
-  scrollbar-color: rgba(0, 255, 0, 0.2) transparent; 
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent; 
 }
 
 /* Custom Scrollbar for Webkit (Chrome/Edge/Safari) */
@@ -226,22 +221,22 @@ button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 0, 0.2);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 0, 0.5);
+  background: rgba(255, 255, 255, 0.3);
 }
 
-.log-entry { border-bottom: 1px dashed var(--chart-grid); padding: 5px 0; }
+.log-entry { border-bottom: 1px dashed var(--border-color); padding: 10px 0; }
 .notes-textarea {
   width: 100%;
   height: 60px;
   font-size: 0.8em;
-  background: var(--bg-card);
-  color: var(--text-color);
+  background: var(--bg-dark);
+  color: #ffffff;
   border: 1px solid var(--border-color);
-  padding: 5px;
+  padding: 8px;
   margin-top: 5px;
   font-family: inherit;
   outline: none;
@@ -250,10 +245,14 @@ button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(
 
 .history-notes {
   font-size: 0.8em;
-  opacity: 0.8;
-  background: rgba(0, 255, 0, 0.05);
-  padding: 4px;
+  opacity: 0.9;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 8px;
   border-left: 2px solid var(--green);
   white-space: pre-wrap;
-  margin-top: 4px;
+  margin-top: 8px;
+  color: #eeeeee;
 }
+
+a { color: var(--green); text-decoration: none; }
+a:hover { text-decoration: underline; }

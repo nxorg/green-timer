@@ -5,24 +5,6 @@
  */
 
 const api = (typeof browser !== 'undefined') ? browser : chrome;
-
-// Update version immediately from manifest
-document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
-  } catch (e) {}
-  
-  if (api.storage && api.storage.local && api.storage.sync) {
-    const localData = await api.storage.local.get(null);
-    if (Object.keys(localData).length === 0) {
-      const syncData = await api.storage.sync.get(null);
-      if (Object.keys(syncData).length > 0) {
-        await api.storage.local.set(syncData);
-      }
-    }
-  }
-});
-
 const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
 const activeStorage = {
@@ -31,14 +13,24 @@ const activeStorage = {
       storageAPI.get(keys, d => api.runtime.lastError ? rej(api.runtime.lastError) : res(d || {})); 
     } else {
       const r = {};
-      if (keys === null) { for (let i=0; i<localStorage.length; i++) { const k=localStorage.key(i); try{r[k]=JSON.parse(localStorage.getItem(k));}catch(e){} } }
-      else { const ka = Array.isArray(keys) ? keys : [keys]; ka.forEach(k => { try{r[k]=JSON.parse(localStorage.getItem(k) || 'null');}catch(e){r[k]=null;} }); }
+      if (keys === null) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          try { r[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { r[k] = localStorage.getItem(k); }
+        }
+      } else {
+        const ka = Array.isArray(keys) ? keys : [keys];
+        ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){ r[k]=null; } });
+      }
       res(r);
     }
   }),
   set: (obj) => new Promise((res, rej) => {
-    if (storageAPI) { storageAPI.set(obj, () => api.runtime.lastError ? rej(api.runtime.lastError) : res()); }
-    else { try { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } catch(e) { rej(e); } }
+    if (storageAPI) { 
+      storageAPI.set(obj, () => api.runtime.lastError ? rej(api.runtime.lastError) : res()); 
+    } else {
+      try { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } catch(e) { rej(e); }
+    }
   }),
   clear: () => new Promise((res, rej) => {
     if (storageAPI) { storageAPI.clear(() => api.runtime.lastError ? rej(api.runtime.lastError) : res()); }
@@ -47,17 +39,32 @@ const activeStorage = {
 };
 
 // --- Theme ---
-async function initTheme() { const data = await activeStorage.get('theme'); if (data.theme === 'light') document.body.classList.add('light-mode'); }
-document.getElementById('theme-toggle').addEventListener('click', async () => { document.body.classList.toggle('light-mode'); const isLight = document.body.classList.contains('light-mode'); await activeStorage.set({ theme: isLight ? 'light' : 'dark' }); if (document.getElementById('stats').classList.contains('active')) renderStats(); });
+async function initTheme() {
+  const data = await activeStorage.get('theme');
+  if (data.theme === 'light') document.body.classList.add('light-mode');
+  else document.body.classList.remove('light-mode');
+}
 
-// --- Matrix ---
+// --- Matrix Rain ---
 class MatrixRain {
-  constructor() { this.canvas = document.getElementById('matrix-canvas'); this.ctx = this.canvas.getContext('2d'); this.columns = 0; this.drops = []; this.active = false; window.addEventListener('resize', () => this.init()); this.init(); }
-  init() { this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight; this.columns = Math.floor(this.canvas.width / 20); this.drops = Array(this.columns).fill(1); }
+  constructor() {
+    this.canvas = document.getElementById('matrix-canvas');
+    if (!this.canvas) return;
+    this.ctx = this.canvas.getContext('2d');
+    this.columns = 0; this.drops = []; this.active = false;
+    window.addEventListener('resize', () => this.init());
+    this.init();
+  }
+  init() {
+    if (!this.canvas) return;
+    this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight;
+    this.columns = Math.floor(this.canvas.width / 20);
+    this.drops = Array(this.columns).fill(1);
+  }
   start() { if (!this.active) { this.active = true; this.animate(); } }
   stop() { this.active = false; }
   animate() {
-    if (!this.active || document.hidden) return;
+    if (!this.active || document.hidden || !this.canvas) return;
     const isLight = document.body.classList.contains('light-mode');
     this.ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
@@ -74,17 +81,21 @@ class MatrixRain {
 }
 const matrix = new MatrixRain();
 
-// --- Tabs ---
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
-    btn.classList.add('active'); document.getElementById(btn.dataset.tab).classList.add('active');
-    if (['stats', 'about', 'standalone-sw'].includes(btn.dataset.tab)) matrix.start(); else matrix.stop();
-    if (btn.dataset.tab === 'log') renderHistory();
-    if (btn.dataset.tab === 'stats') setTimeout(renderStats, 50);
-    if (btn.dataset.tab === 'stopwatch') renderProblems();
+// --- Tab Logic ---
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById(btn.dataset.tab);
+      if (target) target.classList.add('active');
+      if (['stats', 'about', 'standalone-sw'].includes(btn.dataset.tab)) matrix.start(); else matrix.stop();
+      if (btn.dataset.tab === 'log') renderHistory();
+      if (btn.dataset.tab === 'stats') setTimeout(renderStats, 50);
+      if (btn.dataset.tab === 'stopwatch') renderProblems();
+    });
   });
-});
+}
 
 // --- Helpers ---
 function formatTime(ms, isSW = false) {
@@ -149,24 +160,17 @@ function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const tl = timerTargetTime - Date.now();
-    if (tl <= 0) { clearInterval(timerInterval); document.getElementById('timer-display').textContent = '00:00:00.00'; playBeep(); }
-    else document.getElementById('timer-display').textContent = formatTime(tl, true);
+    const el = document.getElementById('timer-display');
+    if (tl <= 0) { clearInterval(timerInterval); if(el) el.textContent = '00:00:00.00'; playBeep(); }
+    else if(el) el.textContent = formatTime(tl, true);
   }, 50);
 }
-document.getElementById('timer-start').addEventListener('click', async () => {
-  const mins = parseInt(document.getElementById('timer-input').value) || 0;
-  if (mins > 0) { timerTargetTime = Date.now() + mins * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); }
-});
-document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
-document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00.00'; });
+
 function updateSwDisplay() { const el = document.getElementById('sw-display'); if (el) el.textContent = formatTime(swElapsedTime, true); }
-function startStandaloneSwUI() { if (swInterval) clearInterval(swInterval); swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); }
-document.getElementById('sw-start').addEventListener('click', async () => { if (swInterval) return; swStartTime = Date.now() - swElapsedTime; await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime }); startStandaloneSwUI(); });
-document.getElementById('sw-pause').addEventListener('click', async () => { if (swInterval) { clearInterval(swInterval); swInterval = null; } swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
-document.getElementById('sw-reset').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
-document.querySelectorAll('.preset-card').forEach(btn => { btn.addEventListener('click', () => { document.getElementById('timer-input').value = btn.dataset.time; }); });
-document.getElementById('timer-inc').addEventListener('click', () => { const input = document.getElementById('timer-input'); input.value = parseInt(input.value || 0) + 1; });
-document.getElementById('timer-dec').addEventListener('click', () => { const input = document.getElementById('timer-input'); const val = parseInt(input.value || 0); if (val > 1) input.value = val - 1; });
+function startStandaloneSwUI() { 
+  if (swInterval) clearInterval(swInterval); 
+  swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); 
+}
 
 // --- Problems ---
 async function loadProblems() { const d = await activeStorage.get('leetcode_problems'); problems = d.leetcode_problems || []; renderProblems(); startUIInterval(); }
@@ -175,7 +179,7 @@ function renderProblems() {
   const c = document.getElementById('problems-container'); if (!c) return; c.replaceChildren();
   if (problems.length === 0) {
     const welcome = document.createElement('div'); welcome.style.textAlign = 'center'; welcome.style.padding = '40px 20px'; welcome.style.opacity = '0.6';
-    welcome.innerHTML = `<div style="font-size: 2em; margin-bottom: 10px;">👋</div><div style="font-weight: bold; color: var(--green);">Welcome, Coder!</div><div style="font-size: 0.8em; margin-top: 5px;">Add a LeetCode problem above to start tracking.</div>`;
+    welcome.innerHTML = `<div style="font-size: 2em; margin-bottom: 10px;">👋</div><div style="font-weight: bold; color: var(--green);">Welcome, Coder!</div><div style="font-size: 0.8em; margin-top: 5px;">Add a LeetCode problem above to start tracking your journey.</div>`;
     c.appendChild(welcome); return;
   }
   problems.forEach((p, i) => {
@@ -185,7 +189,7 @@ function renderProblems() {
     const span = document.createElement('span'); span.style.flexGrow = '1'; span.style.marginRight = '8px'; span.style.overflow = 'hidden'; span.style.textOverflow = 'ellipsis'; span.style.whiteSpace = 'nowrap';
     if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; span.appendChild(a); } else span.textContent = dn;
     const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.marginRight = '5px'; notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
-    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = 'var(--glow)';
+    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = '0 0 10px var(--green)';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
     header.appendChild(span); header.appendChild(notesBtn); header.appendChild(delBtn);
     const controls = document.createElement('div'); controls.className = 'problem-controls';
@@ -203,32 +207,11 @@ function renderProblems() {
     notesSection.appendChild(notesArea); r.appendChild(notesSection); c.appendChild(r);
   });
 }
-document.getElementById('add-problem').addEventListener('click', async () => {
-  const nEl = document.getElementById('new-problem-name'), nameInput = nEl.value.trim();
-  if (nameInput) {
-    let fn = nameInput, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "";
-    if (fnum && nameInput.startsWith(fnum + ". ")) fn = nameInput.replace(fnum + ". ", "");
-    problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false });
-    nEl.value = ''; if (document.getElementById('detection-status')) document.getElementById('detection-status').style.display = 'none';
-    detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval();
-  }
-});
-document.getElementById('problems-container').addEventListener('click', async (e) => {
-  const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return;
-  const p = problems[i];
-  if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } }
-  else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; }
-  else if (action === 'delete') problems.splice(i, 1);
-  else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); }
-  else if (action === 'toggle-notes') p.showNotes = !p.showNotes;
-  await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); }
-  startUIInterval();
-});
+
 function startUIInterval() {
   if (uiInterval) clearInterval(uiInterval); if (!problems.some(p => p.isRunning)) return;
   uiInterval = setInterval(() => { problems.forEach((p, i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now() - p.startTime, true); } }); }, 100);
 }
-api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details') updateProblemInput(msg.details); });
 
 // --- History ---
 async function logToHistory(prob, elapsed) {
@@ -245,12 +228,15 @@ function formatMarkdown(text) {
 let currentHistory = [];
 async function renderHistory() { const l = document.getElementById('log-list'), d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || []; if (l) filterHistory(); }
 function filterHistory() {
-  const l = document.getElementById('log-list'), query = document.getElementById('history-search').value.toLowerCase();
+  const l = document.getElementById('log-list'); if(!l) return;
+  const sEl = document.getElementById('history-search');
+  const query = sEl ? sEl.value.toLowerCase() : "";
   const filtered = currentHistory.filter(i => i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)));
   l.replaceChildren();
   if (filtered.length === 0) { const msg = document.createElement('div'); msg.style.opacity = '0.5'; msg.style.padding = '10px'; msg.textContent = 'No results found.'; l.appendChild(msg); return; }
   const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
-  const summary = document.createElement('div'); summary.style.borderBottom = '1px solid var(--border-color)'; summary.style.paddingBottom = '5px'; summary.style.marginBottom = '8px'; summary.style.fontSize = '0.8em'; summary.style.display = 'flex'; summary.style.justifyContent = 'space-between';
+  const summary = document.createElement('div'); summary.className = 'log-entry'; summary.style.padding = '8px'; summary.style.borderStyle = 'solid';
+  summary.style.display = 'flex'; summary.style.justifyContent = 'space-between'; summary.style.fontSize = '0.8em';
   summary.innerHTML = `<span><b>TOTAL:</b> ${filtered.length} problems</span> <span><b>TIME:</b> ${formatTime(totalMs)}</span>`;
   l.appendChild(summary);
   filtered.forEach((i, idx) => {
@@ -289,77 +275,60 @@ function filterHistory() {
     entry.appendChild(nContainer); l.appendChild(entry);
   });
 }
-document.getElementById('history-search').addEventListener('input', filterHistory);
-document.getElementById('log-list').addEventListener('click', async (e) => {
-  const action = e.target.dataset.action, idx = parseInt(e.target.dataset.index);
-  if (action === 'delete-history') { if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); } }
-  else if (action === 'toggle-history-display') { const display = document.getElementById(`history-note-display-${idx}`); if (display) { const isHidden = display.style.display === 'none'; display.style.display = isHidden ? 'block' : 'none'; e.target.textContent = isHidden ? '▼ HIDE NOTES/CODE' : '▶ VIEW NOTES/CODE'; } }
-  else if (action === 'copy-history-note') { const note = currentHistory[idx].notes; if (note) navigator.clipboard.writeText(note).then(() => { const ot = e.target.textContent; e.target.textContent = 'COPIED!'; setTimeout(() => e.target.textContent = ot, 1500); }); }
-  else if (action === 'edit-history-note') {
-    const entry = currentHistory[idx], container = document.getElementById(`history-note-container-${idx}`); if (!container) return;
-    container.replaceChildren();
-    const ta = document.createElement('textarea'); ta.className = 'notes-textarea'; ta.style.marginTop = '4px'; ta.value = entry.notes || "";
-    const saveBtn = document.createElement('button'); saveBtn.className = 'btn-small'; saveBtn.textContent = 'SAVE'; saveBtn.style.marginTop = '4px';
-    saveBtn.addEventListener('click', async () => { currentHistory[idx].notes = ta.value; await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); });
-    container.appendChild(ta); container.appendChild(saveBtn); ta.focus();
-  }
-});
 
 // --- JSON/CSV System ---
 async function handleRestore(text, isCSV = false) {
   try {
+    const rawText = text.trim();
     if (isCSV) {
-      const lines = text.split('\n'); if (lines.length < 2) throw new Error("Invalid CSV");
+      const lines = rawText.split('\n'); if (lines.length < 2) throw new Error("Invalid CSV");
       const logs = [];
       for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].split(',').map(s => s.replace(/^"|"$/g, '').trim());
-        if (row.length >= 5) {
-          logs.push({ number: row[0], name: row[1], difficulty: row[2], timeStr: row[3], notes: row[4], url: row[5] || "", timestamp: Date.now() - (i * 1000) });
+        // Robust CSV splitter
+        const row = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+        if (row && row.length >= 5) {
+          const clean = row.map(s => s.replace(/^"|"$/g, '').trim());
+          let ts = Date.now() - (i * 1000);
+          if (clean[6]) { const dParsed = new Date(clean[6]).getTime(); if (!isNaN(dParsed)) ts = dParsed; }
+          logs.push({ number: clean[0], name: clean[1], difficulty: clean[2], timeStr: clean[3], notes: clean[4], url: clean[5] || "", timestamp: ts });
         }
       }
       if (confirm(`Found ${logs.length} entries. Append to history?`)) {
         const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || [];
         await activeStorage.set({ leetcode_history: logs.concat(h) });
-        alert('CSV logs imported!'); 
-        // Manual Refresh to prevent popup close
-        await loadProblems();
-        await renderHistory();
-        if (document.getElementById('stats').classList.contains('active')) await renderStats();
+        alert('CSV logs imported!'); await loadProblems(); await renderHistory(); if (document.getElementById('stats').classList.contains('active')) await renderStats();
       }
     } else {
-      const data = JSON.parse(text);
-      if (confirm('Overwriting all data with this JSON backup. Continue?')) {
-        await activeStorage.clear(); 
-        await activeStorage.set(data); 
+      let data = null;
+      try {
+        data = JSON.parse(rawText);
+      } catch (err) {
+        // Simple fallback parser for the tab-separated format user provided
+        data = {};
+        const lines = rawText.split('\n');
+        let currentKey = "";
+        lines.forEach(line => {
+          const parts = line.split('\t').map(p => p.trim());
+          if (parts.length === 1 && parts[0] && isNaN(parts[0])) currentKey = parts[0];
+          else if (parts.length >= 2) {
+            if (!data[currentKey]) data[currentKey] = currentKey.includes('history') || currentKey.includes('problems') ? [] : {};
+          }
+        });
+        if (Object.keys(data).length === 0) throw err; // Re-throw if fallback fails
+      }
+      
+      if (confirm('Overwriting all data with this backup. Continue?')) {
+        await activeStorage.clear(); await activeStorage.set(data); 
         alert('Restored successfully!'); 
-        // Manual Refresh to prevent popup close
-        await loadProblems();
-        await renderHistory();
-        await initTheme();
+        problems = data.leetcode_problems || [];
+        await renderProblems(); await renderHistory(); await initTheme(); await initTimers();
         if (document.getElementById('stats').classList.contains('active')) await renderStats();
       }
     }
   } catch (err) { alert('Restore Failed: ' + err.message); }
 }
 
-document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
-document.getElementById('import-file').addEventListener('change', (e) => {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => handleRestore(ev.target.result, file.name.endsWith('.csv'));
-  reader.readAsText(file);
-  e.target.value = '';
-});
-
-document.getElementById('export-json').addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
-document.getElementById('export-csv').addEventListener('click', async () => {
-  const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return;
-  let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n';
-  h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; });
-  const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click();
-});
-
-// --- Stats ---
+// --- Stats & Heatmap ---
 let hChart, mChart, aChart, hoChart, dChart, selectedHeatmapYear = 'rolling';
 function renderHeatmap(logs, isLight, mainGreen) {
   const canvas = document.getElementById('contributionHeatmap'), selector = document.getElementById('heatmap-year-selector'); if (!canvas || !selector) return;
@@ -428,22 +397,56 @@ async function renderStats() {
   } else if (activeS) activeS.style.display = 'none';
 }
 
-document.getElementById('heatmap-year-selector').addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
-document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+function playBeep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), osc = ctx.createOscillator(), gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.type = 'square'; osc.frequency.setValueAtTime(880, ctx.currentTime); gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(); osc.stop(ctx.currentTime + 0.2); } catch(e) {} }
 
 // --- Shortcuts ---
 window.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   if (e.code === 'Space') {
-    e.preventDefault(); const aT = document.querySelector('.tab-content.active').id;
+    e.preventDefault(); 
+    const activeContent = document.querySelector('.tab-content.active');
+    if(!activeContent) return;
+    const aT = activeContent.id;
     if (aT === 'stopwatch') { const fb = document.querySelector('.problem-controls button'); if (fb) fb.click(); }
-    else if (aT === 'standalone-sw') { const sb = document.getElementById('sw-start'), pb = document.getElementById('sw-pause'); if (swInterval) pb.click(); else sb.click(); }
-    else if (aT === 'timer') document.getElementById('timer-start').click();
+    else if (aT === 'standalone-sw') { const sb = document.getElementById('sw-start'), pb = document.getElementById('sw-pause'); if (swInterval) pb.click(); else if(sb) sb.click(); }
+    else if (aT === 'timer') { const ts = document.getElementById('timer-start'); if(ts) ts.click(); }
   }
 });
 
-function playBeep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), osc = ctx.createOscillator(), gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.type = 'square'; osc.frequency.setValueAtTime(880, ctx.currentTime); gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(); osc.stop(ctx.currentTime + 0.2); } catch(e) {} }
+// --- Initialization ---
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const verEl = document.getElementById('ext-version');
+    if (verEl) verEl.textContent = 'v' + api.runtime.getManifest().version;
+  } catch (e) {}
 
-// --- Init ---
-initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
-async function init() { try { await renderHistory(); } catch(e){} } init();
+  if (api.storage && api.storage.local && api.storage.sync) {
+    const localData = await activeStorage.get(null);
+    if (Object.keys(localData).length === 0) {
+      const syncData = await new Promise(res => api.storage.sync.get(null, d => res(d || {})));
+      if (Object.keys(syncData).length > 0) await activeStorage.set(syncData);
+    }
+  }
+
+  initTabs();
+  const themeBtn = document.getElementById('theme-toggle'); if(themeBtn) themeBtn.addEventListener('click', async () => { document.body.classList.toggle('light-mode'); await activeStorage.set({ theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' }); renderStats(); });
+  const tStart = document.getElementById('timer-start'); if(tStart) tStart.addEventListener('click', async () => { const m = parseInt(document.getElementById('timer-input').value) || 0; if (m > 0) { timerTargetTime = Date.now() + m * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); } });
+  const tPause = document.getElementById('timer-pause'); if(tPause) tPause.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
+  const tReset = document.getElementById('timer-reset'); if(tReset) tReset.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); const d = document.getElementById('timer-display'); if(d) d.textContent = '00:00:00.00'; });
+  const sStart = document.getElementById('sw-start'); if(sStart) sStart.addEventListener('click', async () => { if (swInterval) return; swStartTime = Date.now() - swElapsedTime; await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime }); startStandaloneSwUI(); });
+  const sPause = document.getElementById('sw-pause'); if(sPause) sPause.addEventListener('click', async () => { if (swInterval) { clearInterval(swInterval); swInterval = null; } swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
+  const sReset = document.getElementById('sw-reset'); if(sReset) sReset.addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
+  document.querySelectorAll('.preset-card').forEach(btn => btn.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) inp.value = btn.dataset.time; }));
+  const tInc = document.getElementById('timer-inc'); if(tInc) tInc.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) inp.value = parseInt(inp.value || 0) + 1; });
+  const tDec = document.getElementById('timer-dec'); if(tDec) tDec.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) { const v = parseInt(inp.value || 0); if (v > 1) inp.value = v - 1; } });
+  const addProbBtn = document.getElementById('add-problem'); if(addProbBtn) addProbBtn.addEventListener('click', async () => { const nEl = document.getElementById('new-problem-name'); if(!nEl) return; const name = nEl.value.trim(); if (name) { let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : ""; if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", ""); problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false }); nEl.value = ''; detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval(); } });
+  const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
+  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => document.getElementById('import-file').click());
+  const importFile = document.getElementById('import-file'); if(importFile) importFile.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => handleRestore(ev.target.result, file.name.endsWith('.csv')); reader.readAsText(file); e.target.value = ''; });
+  const exportJson = document.getElementById('export-json'); if(exportJson) exportJson.addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
+  const exportCsv = document.getElementById('export-csv'); if(exportCsv) exportCsv.addEventListener('click', async () => { const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return; let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; }); const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click(); });
+  const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
+  const clearLog = document.getElementById('clear-log'); if(clearLog) clearLog.addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
+
+  await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
+});

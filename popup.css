@@ -100,7 +100,6 @@ body.light-mode #matrix-canvas {
   align-items: center;
   justify-content: center;
   opacity: 0.8;
-  transition: opacity 0.2s;
 }
 
 #theme-toggle:hover {

@@ -309,25 +309,34 @@ document.getElementById('log-list').addEventListener('click', async (e) => {
 async function handleRestore(text, isCSV = false) {
   try {
     if (isCSV) {
-      // Basic CSV Import logic
-      const lines = text.split('\n');
-      if (lines.length < 2) throw new Error("Invalid CSV");
+      const lines = text.split('\n'); if (lines.length < 2) throw new Error("Invalid CSV");
       const logs = [];
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(s => s.replace(/^"|"$/g, '').trim());
-        if (row.length >= 3) {
-          logs.push({ number: row[0], name: row[1], timeStr: row[2], notes: row[3] || "", timestamp: Date.now() - (i * 1000) });
+        if (row.length >= 5) {
+          logs.push({ number: row[0], name: row[1], difficulty: row[2], timeStr: row[3], notes: row[4], url: row[5] || "", timestamp: Date.now() - (i * 1000) });
         }
       }
       if (confirm(`Found ${logs.length} entries. Append to history?`)) {
         const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || [];
         await activeStorage.set({ leetcode_history: logs.concat(h) });
-        alert('CSV logs imported!'); window.location.reload();
+        alert('CSV logs imported!'); 
+        // Manual Refresh to prevent popup close
+        await loadProblems();
+        await renderHistory();
+        if (document.getElementById('stats').classList.contains('active')) await renderStats();
       }
     } else {
       const data = JSON.parse(text);
       if (confirm('Overwriting all data with this JSON backup. Continue?')) {
-        await activeStorage.clear(); await activeStorage.set(data); alert('Restored successfully!'); window.location.reload();
+        await activeStorage.clear(); 
+        await activeStorage.set(data); 
+        alert('Restored successfully!'); 
+        // Manual Refresh to prevent popup close
+        await loadProblems();
+        await renderHistory();
+        await initTheme();
+        if (document.getElementById('stats').classList.contains('active')) await renderStats();
       }
     }
   } catch (err) { alert('Restore Failed: ' + err.message); }
@@ -418,6 +427,7 @@ async function renderStats() {
     activeS.style.display = 'flex'; const aCt = document.getElementById('activeProblemsChart'); if(aCt) { if (aChart) aChart.destroy(); aChart = new Chart(aCt, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:8}}}, y:{ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
   } else if (activeS) activeS.style.display = 'none';
 }
+
 document.getElementById('heatmap-year-selector').addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 

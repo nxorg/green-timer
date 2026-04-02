@@ -66,10 +66,9 @@ body.light-mode #matrix-canvas {
   border: 1px solid var(--border-color);
 }
 
-.logo-icon {
-  width: 14px;
-  height: 14px;
-  background: var(--green);
+.brand-box img {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
 }
 
@@ -162,4 +161,26 @@ button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(
 
 #problems-container, #log-list, .tab-content { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
 .log-entry { border-bottom: 1px dashed var(--chart-grid); padding: 5px 0; }
-a { color: var(--green); }
+.notes-textarea {
+  width: 100%;
+  height: 60px;
+  font-size: 0.8em;
+  background: var(--bg-card);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 5px;
+  margin-top: 5px;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+
+.history-notes {
+  font-size: 0.8em;
+  opacity: 0.8;
+  background: rgba(0, 255, 0, 0.05);
+  padding: 4px;
+  border-left: 2px solid var(--green);
+  white-space: pre-wrap;
+  margin-top: 4px;
+}

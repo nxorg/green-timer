@@ -30,9 +30,25 @@ function getLeetCodeDetails() {
     name = fullTitle.substring(dotIndex + 1).trim();
   }
 
+  // Difficulty detection
+  let difficulty = "";
+  const diffEl = document.querySelector('div[class*="text-difficulty-"], [class*="difficulty"]');
+  if (diffEl) {
+    difficulty = diffEl.innerText.trim();
+  } else {
+    // Fallback for different UI versions
+    const easy = document.querySelector('.text-easy');
+    const medium = document.querySelector('.text-medium');
+    const hard = document.querySelector('.text-hard');
+    if (easy) difficulty = "Easy";
+    else if (medium) difficulty = "Medium";
+    else if (hard) difficulty = "Hard";
+  }
+
   return {
     number: number,
     name: name,
+    difficulty: difficulty,
     url: window.location.href.split('?')[0].split('#')[0]
   };
 }

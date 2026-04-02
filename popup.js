@@ -249,13 +249,49 @@ function renderProblems() {
     finishBtn.dataset.index = i;
     finishBtn.dataset.action = 'finish';
 
+    const notesBtn = document.createElement('button');
+    notesBtn.className = 'btn-small';
+    notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE');
+    notesBtn.dataset.index = i;
+    notesBtn.dataset.action = 'toggle-notes';
+    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = 'var(--glow)';
+
     controls.appendChild(time);
     controls.appendChild(toggleBtn);
     controls.appendChild(resetBtn);
     controls.appendChild(finishBtn);
+    controls.appendChild(notesBtn);
 
     r.appendChild(header);
     r.appendChild(controls);
+
+    // Notes Section
+    const notesSection = document.createElement('div');
+    notesSection.id = `notes-section-${i}`;
+    notesSection.style.display = p.showNotes ? 'block' : 'none';
+
+    const notesArea = document.createElement('textarea');
+    notesArea.className = 'notes-textarea';
+    notesArea.placeholder = 'Enter notes here (will be saved in history)...';
+    notesArea.value = p.notes || '';
+    notesArea.dataset.index = i;
+    
+    const autoExpand = (el) => {
+      el.style.height = 'auto';
+      el.style.height = (el.scrollHeight) + 'px';
+    };
+
+    notesArea.addEventListener('input', (e) => {
+      problems[i].notes = e.target.value;
+      autoExpand(e.target);
+      saveProblems();
+    });
+    
+    // Initial expand
+    setTimeout(() => autoExpand(notesArea), 0);
+
+    notesSection.appendChild(notesArea);
+    r.appendChild(notesSection);
 
     c.appendChild(r);
   });
@@ -265,8 +301,9 @@ document.getElementById('add-problem').addEventListener('click', async () => {
   const nEl = document.getElementById('new-problem-name'); const nameInput = nEl.value.trim();
   if (nameInput) {
     let fn = nameInput; let fnum = detectedDetails ? detectedDetails.number : ""; let furl = detectedDetails ? detectedDetails.url : "";
+    let fdiff = detectedDetails ? detectedDetails.difficulty : "";
     if (fnum && nameInput.startsWith(fnum + ". ")) fn = nameInput.replace(fnum + ". ", "");
-    problems.push({ name: fn, number: fnum, url: furl, elapsed: 0, isRunning: false, startTime: 0 });
+    problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false });
     nEl.value = ''; const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
     detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval();
   }
@@ -279,7 +316,14 @@ document.getElementById('problems-container').addEventListener('click', async (e
   else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; }
   else if (action === 'delete') { problems.splice(i, 1); }
   else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); }
-  await saveProblems(); renderProblems(); startUIInterval();
+  else if (action === 'toggle-notes') { p.showNotes = !p.showNotes; }
+  await saveProblems(); 
+  renderProblems(); 
+  if (action === 'toggle-notes' && p && p.showNotes) {
+    const ta = document.querySelector(`#notes-section-${i} textarea`);
+    if (ta) ta.focus();
+  }
+  startUIInterval();
 });
 
 function startUIInterval() {
@@ -296,8 +340,34 @@ api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details'
 // --- History & CSV ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ name: prob.name, number: prob.number, url: prob.url, timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now() });
+  h.unshift({ 
+    name: prob.name, 
+    number: prob.number, 
+    url: prob.url, 
+    difficulty: prob.difficulty || "",
+    timeStr: formatTime(elapsed, true), 
+    elapsedMs: elapsed, 
+    timestamp: Date.now(), 
+    notes: prob.notes || "" 
+  });
   await activeStorage.set({ leetcode_history: h });
+}
+
+function formatMarkdown(text) {
+  if (!text) return "";
+  // Escape HTML to prevent XSS
+  let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  
+  // Bold: **text**
+  safe = safe.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  
+  // Inline Code: `text`
+  safe = safe.replace(/`(.*?)`/g, '<code style="background:rgba(0,255,0,0.1); padding:1px 3px; border:1px solid rgba(0,255,0,0.3);">$1</code>');
+  
+  // Line breaks
+  safe = safe.replace(/\n/g, '<br>');
+  
+  return safe;
 }
 
 let currentHistory = [];
@@ -312,7 +382,8 @@ function filterHistory() {
 
   const filtered = currentHistory.filter(i =>
     i.name.toLowerCase().includes(query) ||
-    (i.number && i.number.toString().includes(query))
+    (i.number && i.number.toString().includes(query)) ||
+    (i.notes && i.notes.toLowerCase().includes(query))
   );
 
   l.replaceChildren();
@@ -326,8 +397,21 @@ function filterHistory() {
     return;
   }
 
-  filtered.forEach(i => {
-    const dn = (i.number ? i.number + ". " : "") + i.name;
+  // Summary Row
+  const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
+  const summary = document.createElement('div');
+  summary.style.borderBottom = '1px solid var(--green)';
+  summary.style.paddingBottom = '5px';
+  summary.style.marginBottom = '8px';
+  summary.style.fontSize = '0.8em';
+  summary.style.display = 'flex';
+  summary.style.justifyContent = 'space-between';
+  summary.innerHTML = `<span><b>TOTAL:</b> ${filtered.length} problems</span> <span><b>TIME:</b> ${formatTime(totalMs)}</span>`;
+  l.appendChild(summary);
+
+  filtered.forEach((i, idx) => {
+    let dn = (i.number ? i.number + ". " : "") + i.name;
+    if (dn.length > 50) dn = dn.substring(0, 47) + "...";
 
     const dd = (val) => {
       const date = new Date(val);
@@ -345,8 +429,13 @@ function filterHistory() {
     const entry = document.createElement('div');
     entry.className = 'log-entry';
     entry.style.display = 'flex';
-    entry.style.justifyContent = 'space-between';
-    entry.style.alignItems = 'flex-start';
+    entry.style.flexDirection = 'column';
+    entry.style.gap = '4px';
+
+    const row = document.createElement('div');
+    row.style.display = 'flex';
+    row.style.justifyContent = 'space-between';
+    row.style.alignItems = 'flex-start';
 
     const left = document.createElement('div');
 
@@ -364,47 +453,155 @@ function filterHistory() {
     } else {
       strong.textContent = dn;
     }
+    
+    left.appendChild(strong);
+
+    // Difficulty Badge
+    if (i.difficulty) {
+      const badge = document.createElement('span');
+      badge.style.fontSize = '0.7em';
+      badge.style.marginLeft = '8px';
+      badge.style.padding = '1px 5px';
+      badge.style.border = '1px solid';
+      badge.style.fontWeight = 'bold';
+      badge.textContent = i.difficulty;
+      
+      const d = i.difficulty.toLowerCase();
+      if (d.includes('easy')) { badge.style.color = '#00af9b'; badge.style.borderColor = '#00af9b'; }
+      else if (d.includes('medium')) { badge.style.color = '#ffb800'; badge.style.borderColor = '#ffb800'; }
+      else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
+      else { badge.style.color = 'var(--green)'; badge.style.borderColor = 'var(--green)'; }
+      
+      left.appendChild(badge);
+    }
 
     const timeText = document.createTextNode(`: ${i.timeStr}`);
+    left.appendChild(timeText);
 
     const br = document.createElement('br');
-
-    const small = document.createElement('small');
-    small.style.opacity = '0.6';
-    small.textContent = dd(i.timestamp);
-
-    left.appendChild(strong);
-    left.appendChild(timeText);
     left.appendChild(br);
-    left.appendChild(small);
 
-    const btn = document.createElement('button');
-    btn.className = 'btn-small';
-    btn.textContent = 'X';
-    btn.style.padding = '2px 5px';
-    btn.style.color = '#ff0000';
-    btn.style.borderColor = 'rgba(255,0,0,0.3)';
-    btn.dataset.index = realIdx;
-    btn.dataset.action = 'delete-history';
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.gap = '5px';
 
-    entry.appendChild(left);
-    entry.appendChild(btn);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-small';
+    editBtn.textContent = 'EDIT';
+    editBtn.dataset.index = realIdx;
+    editBtn.dataset.action = 'edit-history-note';
 
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn-small';
+    copyBtn.textContent = 'COPY';
+    copyBtn.dataset.index = realIdx;
+    copyBtn.dataset.action = 'copy-history-note';
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-small';
+    delBtn.textContent = 'X';
+    delBtn.style.color = '#ff0000';
+    delBtn.style.borderColor = 'rgba(255,0,0,0.3)';
+    delBtn.dataset.index = realIdx;
+    delBtn.dataset.action = 'delete-history';
+
+    btnRow.appendChild(editBtn);
+    btnRow.appendChild(copyBtn);
+    btnRow.appendChild(delBtn);
+
+    row.appendChild(left);
+    row.appendChild(btnRow);
+
+    entry.appendChild(row);
+
+    const nContainer = document.createElement('div');
+    nContainer.id = `history-note-container-${realIdx}`;
+    
+    if (i.notes && i.notes.trim()) {
+      const toggleNotesBtn = document.createElement('button');
+      toggleNotesBtn.className = 'btn-small';
+      toggleNotesBtn.style.width = '100%';
+      toggleNotesBtn.style.marginTop = '4px';
+      toggleNotesBtn.style.textAlign = 'left';
+      toggleNotesBtn.style.fontSize = '0.7em';
+      toggleNotesBtn.style.opacity = '0.7';
+      toggleNotesBtn.textContent = '▶ VIEW NOTES/CODE';
+      toggleNotesBtn.dataset.index = realIdx;
+      toggleNotesBtn.dataset.action = 'toggle-history-display';
+      
+      const nDisplay = document.createElement('div');
+      nDisplay.className = 'history-notes';
+      nDisplay.id = `history-note-display-${realIdx}`;
+      nDisplay.style.display = 'none'; // Hidden by default
+      nDisplay.innerHTML = formatMarkdown(i.notes);
+      
+      nContainer.appendChild(toggleNotesBtn);
+      nContainer.appendChild(nDisplay);
+    }
+    
+    entry.appendChild(nContainer);
     l.appendChild(entry);
   });
 }
 
 document.getElementById('history-search').addEventListener('input', filterHistory);
 document.getElementById('log-list').addEventListener('click', async (e) => {
-  if (e.target.dataset.action === 'delete-history') {
-    const idx = parseInt(e.target.dataset.index); if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
+  const action = e.target.dataset.action;
+  const idx = parseInt(e.target.dataset.index);
+  if (action === 'delete-history') {
+    if (confirm('Delete this entry?')) { currentHistory.splice(idx).splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
+  } else if (action === 'toggle-history-display') {
+    const display = document.getElementById(`history-note-display-${idx}`);
+    if (display) {
+      const isHidden = display.style.display === 'none';
+      display.style.display = isHidden ? 'block' : 'none';
+      e.target.textContent = isHidden ? '▼ HIDE NOTES/CODE' : '▶ VIEW NOTES/CODE';
+    }
+  } else if (action === 'copy-history-note') {
+    const note = currentHistory[idx].notes;
+    if (note) {
+      navigator.clipboard.writeText(note).then(() => {
+        const originalText = e.target.textContent;
+        e.target.textContent = 'COPIED!';
+        setTimeout(() => { e.target.textContent = originalText; }, 1500);
+      });
+    }
+  } else if (action === 'edit-history-note') {
+    const entry = currentHistory[idx];
+    const container = document.getElementById(`history-note-container-${idx}`);
+    if (!container) return;
+    
+    container.replaceChildren();
+    
+    const ta = document.createElement('textarea');
+    ta.className = 'notes-textarea';
+    ta.style.marginTop = '4px';
+    ta.value = entry.notes || "";
+    
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'btn-small';
+    saveBtn.textContent = 'SAVE';
+    saveBtn.style.marginTop = '4px';
+    saveBtn.addEventListener('click', async () => {
+      currentHistory[idx].notes = ta.value;
+      await activeStorage.set({ leetcode_history: currentHistory });
+      filterHistory();
+    });
+    
+    container.appendChild(ta);
+    container.appendChild(saveBtn);
+    ta.focus();
   }
 });
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || []; if (h.length === 0) return;
-  let csv = 'Number,Name,Time,URL,ISO_Date,Local_Time\n';
-  h.forEach(i => { const date = new Date(i.timestamp); csv += `"${i.number}","${i.name}","${i.timeStr}","${i.url}","${date.toISOString()}","${date.toLocaleString()}"\n`; });
+  let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n';
+  h.forEach(i => { 
+    const date = new Date(i.timestamp); 
+    const safeNotes = (i.notes || "").replace(/"/g, '""');
+    csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${safeNotes}","${i.url}","${date.toISOString()}","${date.toLocaleString()}"\n`; 
+  });
   const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_study_logs.csv'; a.click();
 });

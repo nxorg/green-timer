@@ -36,16 +36,6 @@ async function updateBadge() {
   }
 }
 
-// Listeners for automatic updates
-chrome.runtime.onStartup.addListener(updateBadge);
-chrome.runtime.onInstalled.addListener(updateBadge);
-
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'sync' && (changes.leetcode_history || changes.leetcode_problems)) {
-    updateBadge();
-  }
-});
-
 // Handle Timer Alarms
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'timer-finished') {
@@ -56,5 +46,78 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       message: 'Your countdown timer has finished.',
       priority: 2
     });
+  } else if (alarm.name === 'daily-summary') {
+    showDailySummary();
   }
+});
+
+// Create Daily Alarm (once a day at 9 PM)
+function setupDailyAlarm() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0, 0); // 9 PM
+  if (next < now) next.setDate(next.getDate() + 1);
+  chrome.alarms.create('daily-summary', { when: next.getTime() });
+}
+
+async function showDailySummary() {
+  const data = await chrome.storage.sync.get(['leetcode_history']);
+  const logs = data.leetcode_history || [];
+  const todayK = getDateKey(new Date());
+  const todayLogs = logs.filter(l => getDateKey(l.timestamp) === todayK);
+  
+  if (todayLogs.length > 0) {
+    const totalMs = todayLogs.reduce((s, l) => s + (l.elapsedMs || 0), 0);
+    const mins = Math.floor(totalMs / 60000);
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon-128.png',
+      title: "Today's Achievement!",
+      message: `You solved ${todayLogs.length} problems today in ${mins} mins. Keep it up!`,
+      priority: 1
+    });
+  } else {
+    chrome.notifications.create({
+      type: 'basic',
+      iconUrl: 'icons/icon-128.png',
+      title: "Ready to solve a problem?",
+      message: "You haven't tracked any problems yet today. Stay sharp!",
+      priority: 1
+    });
+  }
+  // Setup next day alarm
+  setupDailyAlarm();
+}
+
+// Show a quick notification when a new problem is finished
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && (changes.leetcode_history || changes.leetcode_problems)) {
+    updateBadge();
+    
+    if (changes.leetcode_history && changes.leetcode_history.newValue) {
+      const oldVal = changes.leetcode_history.oldValue || [];
+      const newVal = changes.leetcode_history.newValue;
+      if (newVal.length > oldVal.length) {
+        const latest = newVal[0];
+        const todayK = getDateKey(new Date());
+        const todayCount = newVal.filter(l => getDateKey(l.timestamp) === todayK).length;
+        
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/icon-128.png',
+          title: "Problem Finished!",
+          message: `Saved "${latest.name}". This is your #${todayCount} problem today!`,
+          priority: 1
+        });
+      }
+    }
+  }
+});
+
+chrome.runtime.onInstalled.addListener(() => {
+  updateBadge();
+  setupDailyAlarm();
+});
+chrome.runtime.onStartup.addListener(() => {
+  updateBadge();
+  setupDailyAlarm();
 });

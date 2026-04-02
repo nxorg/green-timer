@@ -5,6 +5,12 @@
  */
 
 const api = (typeof browser !== 'undefined') ? browser : chrome;
+
+// Update version immediately from manifest
+try {
+  document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
+} catch (e) {}
+
 const storageAPI = api.storage ? api.storage.sync : null;
 
 const activeStorage = {
@@ -34,7 +40,6 @@ document.getElementById('theme-toggle').addEventListener('click', async () => {
   document.body.classList.toggle('light-mode');
   const isLight = document.body.classList.contains('light-mode');
   await activeStorage.set({ theme: isLight ? 'light' : 'dark' });
-  // Update charts if they are visible
   if (document.getElementById('stats').classList.contains('active')) renderStats();
 });
 
@@ -59,7 +64,7 @@ class MatrixRain {
     const isLight = document.body.classList.contains('light-mode');
     this.ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = isLight ? '#008000' : '#0f0'; // Darker green for light mode
+    this.ctx.fillStyle = isLight ? '#008000' : '#0f0';
     this.ctx.font = '15px monospace';
     for (let i = 0; i < this.drops.length; i++) {
       const text = String.fromCharCode(0x30A0 + Math.random() * 96);
@@ -105,8 +110,6 @@ function getDateKey(d) { if(!d) return ""; const o = new Date(d); if(isNaN(o.get
 
 // --- Auto-fill Detection ---
 let detectedDetails = null;
-let detectionRetries = 0;
-
 function updateProblemInput(details) {
   if (!details || !details.name) return false;
   detectedDetails = details;
@@ -137,7 +140,7 @@ async function requestLeetCodeTitle() {
         updateProblemInput({ number: num, name: name, url: tab.url });
       } else { updateProblemInput(response); }
     });
-  } catch (e) { console.error("Detection failed", e); }
+  } catch (e) {}
 }
 
 // --- Logic ---
@@ -167,7 +170,7 @@ document.getElementById('timer-start').addEventListener('click', async () => {
 });
 
 document.getElementById('timer-pause').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
-document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00'; });
+document.getElementById('timer-reset').addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); document.getElementById('timer-display').textContent = '00:00:00.00'; });
 
 function updateSwDisplay() { const el = document.getElementById('sw-display'); if (el) el.textContent = formatTime(swElapsedTime, true); }
 function startStandaloneSwUI() { if (swInterval) clearInterval(swInterval); swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); }
@@ -176,17 +179,8 @@ document.getElementById('sw-pause').addEventListener('click', async () => { if (
 document.getElementById('sw-reset').addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
 
 document.querySelectorAll('.preset-card').forEach(btn => { btn.addEventListener('click', () => { document.getElementById('timer-input').value = btn.dataset.time; }); });
-
-document.getElementById('timer-inc').addEventListener('click', () => {
-  const input = document.getElementById('timer-input');
-  input.value = parseInt(input.value || 0) + 1;
-});
-
-document.getElementById('timer-dec').addEventListener('click', () => {
-  const input = document.getElementById('timer-input');
-  const val = parseInt(input.value || 0);
-  if (val > 1) input.value = val - 1;
-});
+document.getElementById('timer-inc').addEventListener('click', () => { const input = document.getElementById('timer-input'); input.value = parseInt(input.value || 0) + 1; });
+document.getElementById('timer-dec').addEventListener('click', () => { const input = document.getElementById('timer-input'); const val = parseInt(input.value || 0); if (val > 1) input.value = val - 1; });
 
 // --- Problems ---
 async function loadProblems() { const d = await activeStorage.get('leetcode_problems'); problems = d.leetcode_problems || []; renderProblems(); startUIInterval(); }
@@ -195,130 +189,38 @@ async function saveProblems() { await activeStorage.set({ leetcode_problems: pro
 function renderProblems() {
   const c = document.getElementById('problems-container');
   if (!c) return;
-
   c.replaceChildren();
-
   problems.forEach((p, i) => {
-    const r = document.createElement('div');
-    r.className = 'problem-row';
-
+    const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
     const dn = (p.number ? p.number + ". " : "") + p.name;
-
-    // Header
-    const header = document.createElement('div');
-    header.className = 'problem-header';
-
-    const span = document.createElement('span');
-    span.style.flexGrow = '1';
-    span.style.marginRight = '8px';
-    span.style.overflow = 'hidden';
-    span.style.textOverflow = 'ellipsis';
-    span.style.whiteSpace = 'nowrap';
-
-    if (p.url) {
-      const a = document.createElement('a');
-      a.href = p.url;
-      a.target = '_blank';
-      a.style.color = 'var(--green)';
-      a.style.textDecoration = 'none';
-      a.style.borderBottom = '1px dashed var(--green)';
-      a.textContent = dn;
-      span.appendChild(a);
-    } else {
-      span.textContent = dn;
-    }
-
-    const notesBtn = document.createElement('button');
-    notesBtn.className = 'btn-small';
-    notesBtn.style.marginRight = '5px';
-    notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE');
-    notesBtn.dataset.index = i;
-    notesBtn.dataset.action = 'toggle-notes';
+    const header = document.createElement('div'); header.className = 'problem-header';
+    const span = document.createElement('span'); span.style.flexGrow = '1'; span.style.marginRight = '8px'; span.style.overflow = 'hidden'; span.style.textOverflow = 'ellipsis'; span.style.whiteSpace = 'nowrap';
+    if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; span.appendChild(a); } else { span.textContent = dn; }
+    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.marginRight = '5px'; notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
     if (p.notes && !p.showNotes) notesBtn.style.boxShadow = 'var(--glow)';
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-small';
-    delBtn.textContent = 'X';
-    delBtn.dataset.index = i;
-    delBtn.dataset.action = 'delete';
-
-    header.appendChild(span);
-    header.appendChild(notesBtn);
-    header.appendChild(delBtn);
-
-    // Controls
-    const controls = document.createElement('div');
-    controls.className = 'problem-controls';
-
-    const time = document.createElement('div');
-    time.className = 'problem-time';
-    time.id = `time-${i}`;
-    time.textContent = formatTime(cur, true);
-
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'btn-small';
-    toggleBtn.textContent = p.isRunning ? 'PAUSE' : 'START';
-    toggleBtn.dataset.index = i;
-    toggleBtn.dataset.action = 'toggle';
-
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'btn-small';
-    resetBtn.textContent = 'RESET';
-    resetBtn.dataset.index = i;
-    resetBtn.dataset.action = 'reset';
-
-    const finishBtn = document.createElement('button');
-    finishBtn.className = 'btn-small';
-    finishBtn.textContent = 'FINISH';
-    finishBtn.dataset.index = i;
-    finishBtn.dataset.action = 'finish';
-
-    controls.appendChild(time);
-    controls.appendChild(toggleBtn);
-    controls.appendChild(resetBtn);
-    controls.appendChild(finishBtn);
-
-    r.appendChild(header);
-    r.appendChild(controls);
-
-    // Notes Section
-    const notesSection = document.createElement('div');
-    notesSection.id = `notes-section-${i}`;
-    notesSection.style.display = p.showNotes ? 'block' : 'none';
-
-    const notesArea = document.createElement('textarea');
-    notesArea.className = 'notes-textarea';
-    notesArea.placeholder = 'Enter notes here (will be saved in history)...';
-    notesArea.value = p.notes || '';
-    notesArea.dataset.index = i;
-    
-    const autoExpand = (el) => {
-      el.style.height = 'auto';
-      el.style.height = (el.scrollHeight) + 'px';
-    };
-
-    notesArea.addEventListener('input', (e) => {
-      problems[i].notes = e.target.value;
-      autoExpand(e.target);
-      saveProblems();
-    });
-    
-    // Initial expand
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
+    header.appendChild(span); header.appendChild(notesBtn); header.appendChild(delBtn);
+    const controls = document.createElement('div'); controls.className = 'problem-controls';
+    const time = document.createElement('div'); time.className = 'problem-time'; time.id = `time-${i}`; time.textContent = formatTime(cur, true);
+    const toggleBtn = document.createElement('button'); toggleBtn.className = 'btn-small'; toggleBtn.textContent = p.isRunning ? 'PAUSE' : 'START'; toggleBtn.dataset.index = i; toggleBtn.dataset.action = 'toggle';
+    const resetBtn = document.createElement('button'); resetBtn.className = 'btn-small'; resetBtn.textContent = 'RESET'; resetBtn.dataset.index = i; resetBtn.dataset.action = 'reset';
+    const finishBtn = document.createElement('button'); finishBtn.className = 'btn-small'; finishBtn.textContent = 'FINISH'; finishBtn.dataset.index = i; finishBtn.dataset.action = 'finish';
+    controls.appendChild(time); controls.appendChild(toggleBtn); controls.appendChild(resetBtn); controls.appendChild(finishBtn);
+    r.appendChild(header); r.appendChild(controls);
+    const notesSection = document.createElement('div'); notesSection.id = `notes-section-${i}`; notesSection.style.display = p.showNotes ? 'block' : 'none';
+    const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here (will be saved in history)...'; notesArea.value = p.notes || '';
+    const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
+    notesArea.addEventListener('input', (e) => { problems[i].notes = e.target.value; autoExpand(e.target); saveProblems(); });
     setTimeout(() => autoExpand(notesArea), 0);
-
-    notesSection.appendChild(notesArea);
-    r.appendChild(notesSection);
-
-    c.appendChild(r);
+    notesSection.appendChild(notesArea); r.appendChild(notesSection); c.appendChild(r);
   });
 }
 
 document.getElementById('add-problem').addEventListener('click', async () => {
   const nEl = document.getElementById('new-problem-name'); const nameInput = nEl.value.trim();
   if (nameInput) {
-    let fn = nameInput; let fnum = detectedDetails ? detectedDetails.number : ""; let furl = detectedDetails ? detectedDetails.url : "";
-    let fdiff = detectedDetails ? detectedDetails.difficulty : "";
+    let fn = nameInput; let fnum = detectedDetails ? detectedDetails.number : ""; let furl = detectedDetails ? detectedDetails.url : ""; let fdiff = detectedDetails ? detectedDetails.difficulty : "";
     if (fnum && nameInput.startsWith(fnum + ". ")) fn = nameInput.replace(fnum + ". ", "");
     problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false });
     nEl.value = ''; const statusEl = document.getElementById('detection-status'); if (statusEl) statusEl.style.display = 'none';
@@ -334,287 +236,103 @@ document.getElementById('problems-container').addEventListener('click', async (e
   else if (action === 'delete') { problems.splice(i, 1); }
   else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); }
   else if (action === 'toggle-notes') { p.showNotes = !p.showNotes; }
-  await saveProblems(); 
-  renderProblems(); 
-  if (action === 'toggle-notes' && p && p.showNotes) {
-    const ta = document.querySelector(`#notes-section-${i} textarea`);
-    if (ta) ta.focus();
-  }
+  await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); }
   startUIInterval();
 });
 
 function startUIInterval() {
   if (uiInterval) clearInterval(uiInterval);
   if (!problems.some(p => p.isRunning)) return;
-  uiInterval = setInterval(() => {
-    problems.forEach((p, i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now() - p.startTime, true); } });
-  }, 100);
+  uiInterval = setInterval(() => { problems.forEach((p, i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now() - p.startTime, true); } }); }, 100);
 }
 
-// --- Listeners ---
 api.runtime.onMessage.addListener((msg) => { if (msg.type === 'leetcode_details') updateProblemInput(msg.details); });
 
-// --- History & CSV ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || [];
-  h.unshift({ 
-    name: prob.name, 
-    number: prob.number, 
-    url: prob.url, 
-    difficulty: prob.difficulty || "",
-    timeStr: formatTime(elapsed, true), 
-    elapsedMs: elapsed, 
-    timestamp: Date.now(), 
-    notes: prob.notes || "" 
-  });
+  h.unshift({ name: prob.name, number: prob.number, url: prob.url, difficulty: prob.difficulty || "", timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now(), notes: prob.notes || "" });
   await activeStorage.set({ leetcode_history: h });
 }
 
 function formatMarkdown(text) {
   if (!text) return "";
-  // Escape HTML to prevent XSS
   let safe = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  
-  // Bold: **text**
   safe = safe.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-  
-  // Inline Code: `text`
   safe = safe.replace(/`(.*?)`/g, '<code style="background:rgba(0,255,0,0.1); padding:1px 3px; border:1px solid rgba(0,255,0,0.3);">$1</code>');
-  
-  // Line breaks
   safe = safe.replace(/\n/g, '<br>');
-  
   return safe;
 }
 
 let currentHistory = [];
-async function renderHistory() {
-  const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || [];
-  if (!l) return; filterHistory();
-}
+async function renderHistory() { const l = document.getElementById('log-list'); const d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || []; if (!l) return; filterHistory(); }
 
 function filterHistory() {
-  const l = document.getElementById('log-list');
-  const query = document.getElementById('history-search').value.toLowerCase();
-
-  const filtered = currentHistory.filter(i =>
-    i.name.toLowerCase().includes(query) ||
-    (i.number && i.number.toString().includes(query)) ||
-    (i.notes && i.notes.toLowerCase().includes(query))
-  );
-
+  const l = document.getElementById('log-list'); const query = document.getElementById('history-search').value.toLowerCase();
+  const filtered = currentHistory.filter(i => i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)));
   l.replaceChildren();
-
-  if (filtered.length === 0) {
-    const msg = document.createElement('div');
-    msg.style.opacity = '0.5';
-    msg.style.padding = '10px';
-    msg.textContent = 'No results found.';
-    l.appendChild(msg);
-    return;
-  }
-
-  // Summary Row
+  if (filtered.length === 0) { const msg = document.createElement('div'); msg.style.opacity = '0.5'; msg.style.padding = '10px'; msg.textContent = 'No results found.'; l.appendChild(msg); return; }
   const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
-  const summary = document.createElement('div');
-  summary.style.borderBottom = '1px solid var(--green)';
-  summary.style.paddingBottom = '5px';
-  summary.style.marginBottom = '8px';
-  summary.style.fontSize = '0.8em';
-  summary.style.display = 'flex';
-  summary.style.justifyContent = 'space-between';
+  const summary = document.createElement('div'); summary.style.borderBottom = '1px solid var(--border-color)'; summary.style.paddingBottom = '5px'; summary.style.marginBottom = '8px'; summary.style.fontSize = '0.8em'; summary.style.display = 'flex'; summary.style.justifyContent = 'space-between';
   summary.innerHTML = `<span><b>TOTAL:</b> ${filtered.length} problems</span> <span><b>TIME:</b> ${formatTime(totalMs)}</span>`;
   l.appendChild(summary);
-
   filtered.forEach((i, idx) => {
-    let dn = (i.number ? i.number + ". " : "") + i.name;
-    if (dn.length > 50) dn = dn.substring(0, 47) + "...";
-
-    const dd = (val) => {
-      const date = new Date(val);
-      if (isNaN(date.getTime())) return "Unknown";
-
-      const now = new Date();
-      if (getDateKey(date) === getDateKey(now)) {
-        return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-      return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-    };
-
+    let dn = (i.number ? i.number + ". " : "") + i.name; if (dn.length > 50) dn = dn.substring(0, 47) + "...";
+    const dd = (val) => { const date = new Date(val); if (isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
     const realIdx = currentHistory.indexOf(i);
-
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-
-    const topRow = document.createElement('div');
-    topRow.className = 'log-entry-row';
-
-    const left = document.createElement('div');
-    left.style.flex = "1";
-
-    const title = document.createElement('div');
-    title.className = 'log-entry-title';
-
-    if (i.url) {
-      const a = document.createElement('a');
-      a.href = i.url;
-      a.target = '_blank';
-      a.textContent = dn;
-      title.appendChild(a);
-    } else {
-      title.textContent = dn;
-    }
-    
+    const entry = document.createElement('div'); entry.className = 'log-entry';
+    const topRow = document.createElement('div'); topRow.className = 'log-entry-row';
+    const left = document.createElement('div'); left.style.flex = "1";
+    const title = document.createElement('div'); title.className = 'log-entry-title';
+    if (i.url) { const a = document.createElement('a'); a.href = i.url; a.target = '_blank'; a.textContent = dn; title.appendChild(a); } else { title.textContent = dn; }
     left.appendChild(title);
-
-    const meta = document.createElement('div');
-    meta.className = 'log-entry-meta';
-    
+    const meta = document.createElement('div'); meta.className = 'log-entry-meta';
     if (i.difficulty) {
-      const badge = document.createElement('span');
-      badge.className = 'difficulty-badge';
-      badge.style.marginRight = '8px';
-      badge.textContent = i.difficulty;
-      
+      const badge = document.createElement('span'); badge.className = 'difficulty-badge'; badge.style.marginRight = '8px'; badge.textContent = i.difficulty;
       const d = i.difficulty.toLowerCase();
       if (d.includes('easy')) { badge.style.color = '#00af9b'; badge.style.borderColor = '#00af9b'; }
       else if (d.includes('medium')) { badge.style.color = '#ffb800'; badge.style.borderColor = '#ffb800'; }
       else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
       meta.appendChild(badge);
     }
-
-    const timeSpan = document.createElement('span');
-    timeSpan.style.fontWeight = "bold";
-    timeSpan.style.color = "var(--text-color)";
-    timeSpan.textContent = i.timeStr;
-    meta.appendChild(timeSpan);
-
-    const dateSpan = document.createElement('span');
-    dateSpan.style.marginLeft = "8px";
-    dateSpan.textContent = dd(i.timestamp);
-    meta.appendChild(dateSpan);
-
+    const timeSpan = document.createElement('span'); timeSpan.style.fontWeight = "bold"; timeSpan.style.color = "var(--text-color)"; timeSpan.textContent = i.timeStr; meta.appendChild(timeSpan);
+    const dateSpan = document.createElement('span'); dateSpan.style.marginLeft = "8px"; dateSpan.textContent = dd(i.timestamp); meta.appendChild(dateSpan);
     left.appendChild(meta);
-
-    const btnRow = document.createElement('div');
-    btnRow.style.display = 'flex';
-    btnRow.style.gap = '5px';
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn-small';
-    editBtn.textContent = 'EDIT';
-    editBtn.dataset.index = realIdx;
-    editBtn.dataset.action = 'edit-history-note';
-
-    const copyBtn = document.createElement('button');
-    copyBtn.className = 'btn-small';
-    copyBtn.textContent = 'COPY';
-    copyBtn.dataset.index = realIdx;
-    copyBtn.dataset.action = 'copy-history-note';
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn-small';
-    delBtn.textContent = 'X';
-    delBtn.style.color = '#ff0000';
-    delBtn.dataset.index = realIdx;
-    delBtn.dataset.action = 'delete-history';
-
-    btnRow.appendChild(editBtn);
-    btnRow.appendChild(copyBtn);
-    btnRow.appendChild(delBtn);
-
-    topRow.appendChild(left);
-    topRow.appendChild(btnRow);
-
-    entry.appendChild(topRow);
-
-    const nContainer = document.createElement('div');
-    nContainer.id = `history-note-container-${realIdx}`;
-    
+    const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
+    const editBtn = document.createElement('button'); editBtn.className = 'btn-small'; editBtn.textContent = 'EDIT'; editBtn.dataset.index = realIdx; editBtn.dataset.action = 'edit-history-note';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
+    btnRow.appendChild(editBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
+    topRow.appendChild(left); topRow.appendChild(btnRow); entry.appendChild(topRow);
+    const nContainer = document.createElement('div'); nContainer.id = `history-note-container-${realIdx}`;
     if (i.notes && i.notes.trim()) {
-      const toggleNotesBtn = document.createElement('button');
-      toggleNotesBtn.className = 'btn-small';
-      toggleNotesBtn.style.width = '100%';
-      toggleNotesBtn.style.marginTop = '4px';
-      toggleNotesBtn.style.textAlign = 'center';
-      toggleNotesBtn.style.fontSize = '0.7em';
-      toggleNotesBtn.textContent = '▶ VIEW NOTES / CODE';
-      toggleNotesBtn.dataset.index = realIdx;
-      toggleNotesBtn.dataset.action = 'toggle-history-display';
-      
-      const nDisplay = document.createElement('div');
-      nDisplay.className = 'history-notes';
-      nDisplay.id = `history-note-display-${realIdx}`;
-      nDisplay.style.display = 'none';
-      nDisplay.innerHTML = formatMarkdown(i.notes);
-      
-      nContainer.appendChild(toggleNotesBtn);
-      nContainer.appendChild(nDisplay);
+      const toggleNotesBtn = document.createElement('button'); toggleNotesBtn.className = 'btn-small'; toggleNotesBtn.style.width = '100%'; toggleNotesBtn.style.marginTop = '4px'; toggleNotesBtn.style.textAlign = 'center'; toggleNotesBtn.style.fontSize = '0.7em'; toggleNotesBtn.textContent = '▶ VIEW NOTES / CODE'; toggleNotesBtn.dataset.index = realIdx; toggleNotesBtn.dataset.action = 'toggle-history-display';
+      const nDisplay = document.createElement('div'); nDisplay.className = 'history-notes'; nDisplay.id = `history-note-display-${realIdx}`; nDisplay.style.display = 'none'; nDisplay.innerHTML = formatMarkdown(i.notes);
+      nContainer.appendChild(toggleNotesBtn); nContainer.appendChild(nDisplay);
     }
-    
-    entry.appendChild(nContainer);
-    l.appendChild(entry);
+    entry.appendChild(nContainer); l.appendChild(entry);
   });
 }
 
 document.getElementById('history-search').addEventListener('input', filterHistory);
 document.getElementById('log-list').addEventListener('click', async (e) => {
-  const action = e.target.dataset.action;
-  const idx = parseInt(e.target.dataset.index);
-  if (action === 'delete-history') {
-    if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); }
-  } else if (action === 'toggle-history-display') {
-    const display = document.getElementById(`history-note-display-${idx}`);
-    if (display) {
-      const isHidden = display.style.display === 'none';
-      display.style.display = isHidden ? 'block' : 'none';
-      e.target.textContent = isHidden ? '▼ HIDE NOTES/CODE' : '▶ VIEW NOTES/CODE';
-    }
-  } else if (action === 'copy-history-note') {
-    const note = currentHistory[idx].notes;
-    if (note) {
-      navigator.clipboard.writeText(note).then(() => {
-        const originalText = e.target.textContent;
-        e.target.textContent = 'COPIED!';
-        setTimeout(() => { e.target.textContent = originalText; }, 1500);
-      });
-    }
-  } else if (action === 'edit-history-note') {
-    const entry = currentHistory[idx];
-    const container = document.getElementById(`history-note-container-${idx}`);
-    if (!container) return;
-    
+  const action = e.target.dataset.action; const idx = parseInt(e.target.dataset.index);
+  if (action === 'delete-history') { if (confirm('Delete this entry?')) { currentHistory.splice(idx, 1); await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); } }
+  else if (action === 'toggle-history-display') { const display = document.getElementById(`history-note-display-${idx}`); if (display) { const isHidden = display.style.display === 'none'; display.style.display = isHidden ? 'block' : 'none'; e.target.textContent = isHidden ? '▼ HIDE NOTES/CODE' : '▶ VIEW NOTES/CODE'; } }
+  else if (action === 'copy-history-note') { const note = currentHistory[idx].notes; if (note) { navigator.clipboard.writeText(note).then(() => { const originalText = e.target.textContent; e.target.textContent = 'COPIED!'; setTimeout(() => { e.target.textContent = originalText; }, 1500); }); } }
+  else if (action === 'edit-history-note') {
+    const entry = currentHistory[idx]; const container = document.getElementById(`history-note-container-${idx}`); if (!container) return;
     container.replaceChildren();
-    
-    const ta = document.createElement('textarea');
-    ta.className = 'notes-textarea';
-    ta.style.marginTop = '4px';
-    ta.value = entry.notes || "";
-    
-    const saveBtn = document.createElement('button');
-    saveBtn.className = 'btn-small';
-    saveBtn.textContent = 'SAVE';
-    saveBtn.style.marginTop = '4px';
-    saveBtn.addEventListener('click', async () => {
-      currentHistory[idx].notes = ta.value;
-      await activeStorage.set({ leetcode_history: currentHistory });
-      filterHistory();
-    });
-    
-    container.appendChild(ta);
-    container.appendChild(saveBtn);
-    ta.focus();
+    const ta = document.createElement('textarea'); ta.className = 'notes-textarea'; ta.style.marginTop = '4px'; ta.value = entry.notes || "";
+    const saveBtn = document.createElement('button'); saveBtn.className = 'btn-small'; saveBtn.textContent = 'SAVE'; saveBtn.style.marginTop = '4px';
+    saveBtn.addEventListener('click', async () => { currentHistory[idx].notes = ta.value; await activeStorage.set({ leetcode_history: currentHistory }); filterHistory(); });
+    container.appendChild(ta); container.appendChild(saveBtn); ta.focus();
   }
 });
 
 document.getElementById('export-csv').addEventListener('click', async () => {
   const d = await activeStorage.get('leetcode_history'); const h = d.leetcode_history || []; if (h.length === 0) return;
   let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n';
-  h.forEach(i => { 
-    const date = new Date(i.timestamp); 
-    const safeNotes = (i.notes || "").replace(/"/g, '""');
-    csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${safeNotes}","${i.url}","${date.toISOString()}","${date.toLocaleString()}"\n`; 
-  });
+  h.forEach(i => { const date = new Date(i.timestamp); const safeNotes = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${safeNotes}","${i.url}","${date.toISOString()}","${date.toLocaleString()}"\n`; });
   const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = 'leetcode_study_logs.csv'; a.click();
 });
@@ -622,106 +340,35 @@ document.getElementById('export-csv').addEventListener('click', async () => {
 // --- Stats ---
 let hChart, mChart, aChart, hoChart;
 let selectedHeatmapYear = 'rolling';
-
-document.getElementById('heatmap-year-selector').addEventListener('change', (e) => {
-  selectedHeatmapYear = e.target.value;
-  renderStats();
-});
+document.getElementById('heatmap-year-selector').addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
 
 function renderHeatmap(logs, isLight, mainGreen) {
-  const canvas = document.getElementById('contributionHeatmap');
-  const section = document.getElementById('heatmap-section');
-  const selector = document.getElementById('heatmap-year-selector');
-  if (!canvas || !section || !selector) return;
-
-  // Populate Year Selector dynamically
+  const canvas = document.getElementById('contributionHeatmap'); const section = document.getElementById('heatmap-section'); const selector = document.getElementById('heatmap-year-selector'); if (!canvas || !section || !selector) return;
   const years = [...new Set(logs.filter(l => l && l.timestamp).map(l => new Date(l.timestamp).getFullYear()))].sort((a,b) => b-a);
   const currentOptions = Array.from(selector.options).map(o => o.value);
-  years.forEach(y => {
-    if (!currentOptions.includes(y.toString())) {
-      const opt = document.createElement('option');
-      opt.value = y; opt.textContent = y;
-      selector.appendChild(opt);
-    }
-  });
-
-  const ctx = canvas.getContext('2d');
-  const boxSize = 7;
-  const gap = 2;
-  const weeks = 53;
-  const days = 7;
-  const topPadding = 15;
-  const leftPadding = 20;
-  
-  canvas.width = (weeks * (boxSize + gap)) + leftPadding + 50; 
-  canvas.height = (days * (boxSize + gap)) + topPadding;
-  
-  const now = new Date();
-  let startDate, endDate;
-
-  if (selectedHeatmapYear === 'rolling') {
-    startDate = new Date(now);
-    startDate.setDate(now.getDate() - 365);
-    startDate.setDate(startDate.getDate() - startDate.getDay()); // Align to Sun
-    endDate = now;
-  } else {
-    const yr = parseInt(selectedHeatmapYear);
-    startDate = new Date(yr, 0, 1);
-    startDate.setDate(startDate.getDate() - startDate.getDay()); // Start from first Sunday (may be in previous year)
-    endDate = new Date(yr, 11, 31);
-  }
-  
-  const dailyData = {};
-  logs.forEach(l => {
-    if (l && l.timestamp) {
-      const k = getDateKey(l.timestamp);
-      dailyData[k] = (dailyData[k] || 0) + 1;
-    }
-  });
-
+  years.forEach(y => { if (!currentOptions.includes(y.toString())) { const opt = document.createElement('option'); opt.value = y; opt.textContent = y; selector.appendChild(opt); } });
+  const ctx = canvas.getContext('2d'); const boxSize = 7; const gap = 2; const weeks = 53; const days = 7; const topPadding = 15; const leftPadding = 20;
+  canvas.width = (weeks * (boxSize + gap)) + leftPadding + 50; canvas.height = (days * (boxSize + gap)) + topPadding;
+  const now = new Date(); let startDate, endDate;
+  if (selectedHeatmapYear === 'rolling') { startDate = new Date(now); startDate.setDate(now.getDate() - 365); startDate.setDate(startDate.getDate() - startDate.getDay()); endDate = now; }
+  else { const yr = parseInt(selectedHeatmapYear); startDate = new Date(yr, 0, 1); startDate.setDate(startDate.getDate() - startDate.getDay()); endDate = new Date(yr, 11, 31); }
+  const dailyData = {}; logs.forEach(l => { if (l && l.timestamp) { const k = getDateKey(l.timestamp); dailyData[k] = (dailyData[k] || 0) + 1; } });
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  ctx.fillStyle = isLight ? '#666' : '#999';
-  ctx.font = '7px sans-serif';
-  ['M', 'W', 'F'].forEach((day, i) => {
-    ctx.fillText(day, 0, topPadding + (i * 2 + 2) * (boxSize + gap) - 2);
-  });
-
+  ctx.fillStyle = isLight ? '#666' : '#999'; ctx.font = '7px sans-serif'; ['M', 'W', 'F'].forEach((day, i) => { ctx.fillText(day, 0, topPadding + (i * 2 + 2) * (boxSize + gap) - 2); });
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  let lastMonth = -1;
-  let extraGap = 0;
-
+  let lastMonth = -1; let extraGap = 0;
   for (let w = 0; w < weeks; w++) {
-    const weekStartDate = new Date(startDate);
-    weekStartDate.setDate(startDate.getDate() + (w * 7));
-    
+    const weekStartDate = new Date(startDate); weekStartDate.setDate(startDate.getDate() + (w * 7));
     const currentMonth = weekStartDate.getMonth();
-    if (currentMonth !== lastMonth) {
-      if (lastMonth !== -1) extraGap += 4;
-      ctx.fillStyle = isLight ? '#666' : '#999';
-      ctx.fillText(monthNames[currentMonth], leftPadding + w * (boxSize + gap) + extraGap, 10);
-      lastMonth = currentMonth;
-    }
-
+    if (currentMonth !== lastMonth) { if (lastMonth !== -1) extraGap += 4; ctx.fillStyle = isLight ? '#666' : '#999'; ctx.fillText(monthNames[currentMonth], leftPadding + w * (boxSize + gap) + extraGap, 10); lastMonth = currentMonth; }
     for (let d = 0; d < days; d++) {
-      const date = new Date(weekStartDate);
-      date.setDate(weekStartDate.getDate() + d);
-      
+      const date = new Date(weekStartDate); date.setDate(weekStartDate.getDate() + d);
       if (date > endDate || (selectedHeatmapYear !== 'rolling' && date.getFullYear() > parseInt(selectedHeatmapYear))) continue;
-      
-      const k = getDateKey(date);
-      const count = dailyData[k] || 0;
-      
-      if (count === 0) {
-        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.05)' : 'rgba(255,255,255,0.05)';
-      } else if (count < 2) {
-        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.3)' : 'rgba(0,255,0,0.3)';
-      } else if (count < 4) {
-        ctx.fillStyle = isLight ? 'rgba(0,128,0,0.6)' : 'rgba(0,255,0,0.6)';
-      } else {
-        ctx.fillStyle = mainGreen;
-      }
-      
+      const k = getDateKey(date); const count = dailyData[k] || 0;
+      if (count === 0) { ctx.fillStyle = isLight ? 'rgba(0,128,0,0.05)' : 'rgba(255,255,255,0.05)'; }
+      else if (count < 2) { ctx.fillStyle = isLight ? 'rgba(0,128,0,0.3)' : 'rgba(0,255,0,0.3)'; }
+      else if (count < 4) { ctx.fillStyle = isLight ? 'rgba(0,128,0,0.6)' : 'rgba(0,255,0,0.6)'; }
+      else { ctx.fillStyle = mainGreen; }
       ctx.fillRect(leftPadding + w * (boxSize + gap) + extraGap, topPadding + d * (boxSize + gap), boxSize, boxSize);
     }
   }
@@ -733,24 +380,15 @@ async function renderStats() {
   const isLight = document.body.classList.contains('light-mode');
   const mainGreen = isLight ? '#008000' : '#00ff00';
   const gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
-
   renderHeatmap(logs, isLight, mainGreen);
-
   const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
-  document.getElementById('total-problems').textContent = logs.length;
-  document.getElementById('total-time-spent').textContent = formatTime(totalMs);
-
-  const todayK = getDateKey(new Date());
-  const now = new Date();
-  const startOfWeek = new Date(now.getTime() - 7 * 86400000);
-  const startOfMonth = new Date(now.getTime() - 30 * 86400000);
-  const thisYear = now.getFullYear();
-
-  document.getElementById('stat-today').textContent = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
-  document.getElementById('stat-week').textContent = logs.filter(l => l.timestamp > startOfWeek.getTime()).length;
-  document.getElementById('stat-month').textContent = logs.filter(l => l.timestamp > startOfMonth.getTime()).length;
-  document.getElementById('stat-year').textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisYear).length;
-
+  const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
+  const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
+  const todayK = getDateKey(new Date()); const now = new Date(); const startOfWeek = new Date(now.getTime() - 7 * 86400000); const startOfMonth = new Date(now.getTime() - 30 * 86400000); const thisYear = now.getFullYear();
+  const stEl = document.getElementById('stat-today'); if (stEl) stEl.textContent = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  const swEl = document.getElementById('stat-week'); if (swEl) swEl.textContent = logs.filter(l => l.timestamp > startOfWeek.getTime()).length;
+  const smEl = document.getElementById('stat-month'); if (smEl) smEl.textContent = logs.filter(l => l.timestamp > startOfMonth.getTime()).length;
+  const syEl = document.getElementById('stat-year'); if (syEl) syEl.textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisYear).length;
   const daysArr = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
   let streak = 0; if (daysArr.length > 0) {
     let c = new Date(); c.setHours(0,0,0,0);
@@ -759,25 +397,18 @@ async function renderStats() {
       for (let day of daysArr) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
     }
   }
-  document.getElementById('current-streak').textContent = streak;
-
-  // --- 7 Day ---
+  const csEl = document.getElementById('current-streak'); if (csEl) csEl.textContent = streak;
   const l7k = []; const l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
   const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
   const hCtx = document.getElementById('progressChart');
   if(hCtx) { if (hChart) hChart.destroy(); hChart = new Chart(hCtx, { type:'bar', data:{ labels:l7l, datasets:[{ data:d7Counts, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
-
-  // --- 30 Day ---
   const l30k = []; const l30l = []; for (let i=29; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l30k.push(getDateKey(d)); l30l.push(i%5===0 ? (d.getMonth()+1)+'/'+d.getDate() : ''); }
   const d30Counts = l30k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
   const mCtx = document.getElementById('monthProgressChart');
   if(mCtx) { if (mChart) mChart.destroy(); mChart = new Chart(mCtx, { type:'bar', data:{ labels:l30l, datasets:[{ data:d30Counts, backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
-
-  // --- Hourly (Day) ---
   const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp && getDateKey(l.timestamp) === todayK) { const d = new Date(l.timestamp); hrData[d.getHours()]++; } });
   const hoCtx = document.getElementById('hourlyActivityChart');
   if(hoCtx) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCtx, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
-
   const activeS = document.getElementById('active-chart-section');
   if (curr.length > 0 && activeS) {
     activeS.style.display = 'flex'; const aCtx = document.getElementById('activeProblemsChart');
@@ -788,11 +419,5 @@ async function renderStats() {
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
-initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
-async function init() { try { await renderHistory(); } catch(e){} } init();
-);
-
-// --- Init ---
-document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
 initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
 async function init() { try { await renderHistory(); } catch(e){} } init();

@@ -162,7 +162,28 @@ input, select { background: var(--bg-card); border: 1px solid var(--border-color
 button { background: transparent; border: 1px solid var(--border-color); color: var(--green); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }
 button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(--glow); }
 
-#problems-container, #log-list, .tab-content { scrollbar-width: thin; scrollbar-color: var(--border-color) transparent; }
+#problems-container, #log-list, .tab-content { 
+  scrollbar-width: thin; 
+  scrollbar-color: rgba(0, 255, 0, 0.2) transparent; 
+}
+
+/* Custom Scrollbar for Webkit (Chrome/Edge/Safari) */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 255, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 255, 0, 0.5);
+}
+
 .log-entry { border-bottom: 1px dashed var(--chart-grid); padding: 5px 0; }
 .notes-textarea {
   width: 100%;

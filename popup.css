@@ -30,13 +30,15 @@ body.light-mode {
 }
 
 body {
-  width: 100%; max-width: 400px; min-width: 320px;
+  width: 400px; height: 600px;
   background: var(--bg-dark); color: var(--text-color);
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Segoe UI Mono', monospace;
   margin: 0; padding: 15px; 
   border: 2px solid var(--border-color);
-  position: relative; overflow-x: hidden;
+  position: relative; overflow: hidden;
   transition: background 0.3s, color 0.3s;
+  display: flex;
+  flex-direction: column;
 }
 
 #matrix-canvas {
@@ -48,13 +50,14 @@ body.light-mode #matrix-canvas {
   opacity: 0.05;
 }
 
-.container { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; }
+.container { display: flex; flex-direction: column; gap: 12px; position: relative; z-index: 1; height: 100%; }
 
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 5px;
+  flex-shrink: 0;
 }
 
 .brand-box {
@@ -113,7 +116,7 @@ body.light-mode #moon-icon { display: block !important; }
 body:not(.light-mode) #sun-icon { display: block !important; }
 body:not(.light-mode) #moon-icon { display: none !important; }
 
-.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; }
+.tabs { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; flex-shrink: 0; }
 
 .tab-btn {
   flex: 1;
@@ -125,15 +128,15 @@ body:not(.light-mode) #moon-icon { display: none !important; }
 
 .tab-btn.active { opacity: 1; font-weight: bold; border-bottom: 3px solid var(--border-color); text-shadow: var(--glow); }
 
-.tab-content { display: none; max-height: 480px; overflow-y: auto; padding-right: 5px; }
+.tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 5px; }
 .tab-content.active { display: flex; flex-direction: column; gap: 10px; }
 
 /* Stats */
-.stats-summary { display: flex; justify-content: space-around; gap: 8px; margin-bottom: 5px; }
+.stats-summary { display: flex; justify-content: space-around; gap: 8px; margin-bottom: 5px; flex-shrink: 0; }
 .stat-card { background: var(--bg-card); border: 1px solid var(--border-color); padding: 6px; text-align: center; flex-grow: 1; }
 .stat-value { font-size: 1.2em; font-weight: bold; text-shadow: var(--glow); color: var(--green); }
 .stat-label { font-size: 0.6em; opacity: 0.7; color: var(--text-color); }
-.chart-section { display: flex; flex-direction: column; gap: 3px; }
+.chart-section { display: flex; flex-direction: column; gap: 3px; flex-shrink: 0; }
 .chart-label { font-size: 0.7em; font-weight: bold; opacity: 0.8; border-left: 2px solid var(--border-color); padding-left: 5px; }
 .chart-container { background: var(--bg-card); border: 1px solid var(--border-color); padding: 5px; height: 140px; }
 
@@ -156,8 +159,9 @@ body:not(.light-mode) #moon-icon { display: none !important; }
   color: var(--green);
   font-weight: 700;
   letter-spacing: 1px;
+  flex-shrink: 0;
 }
-.input-row { display: flex; gap: 5px; align-items: center; }
+.input-row { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
 input, select { background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-color); padding: 8px; font-family: inherit; outline: none; width: 100%; }
 button { background: transparent; border: 1px solid var(--border-color); color: var(--green); padding: 8px 12px; cursor: pointer; font-family: inherit; transition: 0.2s; font-size: 0.8em; font-weight: bold; }
 button:hover { background: var(--green); color: var(--bg-dark); box-shadow: var(--glow); }

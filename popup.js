@@ -448,6 +448,29 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+document.getElementById('export-json').addEventListener('click', async () => {
+  const data = await activeStorage.get(null);
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
+});
+
+document.getElementById('import-json').addEventListener('click', () => document.getElementById('import-file').click());
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (confirm('Importing will overwrite current data. Continue?')) {
+        await activeStorage.set(data);
+        window.location.reload();
+      }
+    } catch (err) { alert('Invalid backup file.'); }
+  };
+  reader.readAsText(file);
+});
+
 // --- Init ---
 initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
 async function init() { try { await renderHistory(); } catch(e){} } init();

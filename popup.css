@@ -334,5 +334,82 @@ button:hover { background: var(--green); color: #000000; border-color: var(--gre
   color: #000000;
 }
 
+/* Timer & Stopwatch Redesign */
+.timer-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 15px;
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 15px;
+}
+
+.btn-main {
+  background: var(--green) !important;
+  color: #000000 !important;
+  border: none !important;
+  flex: 1;
+}
+
+.preset-label {
+  font-size: 0.7em;
+  font-weight: bold;
+  opacity: 0.6;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.preset-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  padding: 10px 5px;
+  cursor: pointer;
+  color: var(--text-color);
+  transition: 0.2s;
+}
+
+.preset-card:hover {
+  background: var(--green);
+  color: #000000;
+}
+
+.preset-time {
+  font-weight: bold;
+  font-size: 1.1em;
+}
+
+.preset-unit {
+  font-size: 0.5em;
+  opacity: 0.7;
+}
+
+.controls-row {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-outline {
+  flex: 1;
+  background: transparent !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-color) !important;
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
 a { color: var(--green); text-decoration: none; }
 a:hover { text-decoration: underline; }

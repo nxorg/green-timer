@@ -130,10 +130,38 @@
 
     <!-- 5. Timer Section -->
     <div id="timer" class="tab-content">
-      <div class="display" id="timer-display">00:00:00</div>
-      <div class="input-row"><input type="number" id="timer-input" placeholder="Minutes" min="1"><button id="timer-start">Start</button></div>
-      <div class="presets"><button class="preset" data-time="5">5m</button><button class="preset" data-time="10">10m</button><button class="preset" data-time="25">25m</button></div>
-      <div class="controls"><button id="timer-pause">Pause</button><button id="timer-reset">Reset</button></div>
+      <div class="timer-card">
+        <div class="display" id="timer-display">00:00:00</div>
+        <div class="input-group">
+          <input type="number" id="timer-input" placeholder="Minutes" min="1">
+          <button id="timer-start" class="btn-main">START TIMER</button>
+        </div>
+      </div>
+
+      <div class="preset-label">QUICK PRESETS</div>
+      <div class="presets-grid">
+        <button class="preset-card" data-time="5">
+          <div class="preset-time">5</div>
+          <div class="preset-unit">MIN</div>
+        </button>
+        <button class="preset-card" data-time="10">
+          <div class="preset-time">10</div>
+          <div class="preset-unit">MIN</div>
+        </button>
+        <button class="preset-card" data-time="25">
+          <div class="preset-time">25</div>
+          <div class="preset-unit">MIN</div>
+        </button>
+        <button class="preset-card" data-time="50">
+          <div class="preset-time">50</div>
+          <div class="preset-unit">MIN</div>
+        </button>
+      </div>
+
+      <div class="controls-row">
+        <button id="timer-pause" class="btn-outline">PAUSE</button>
+        <button id="timer-reset" class="btn-outline">RESET</button>
+      </div>
     </div>
 
     <!-- 6. About Section -->

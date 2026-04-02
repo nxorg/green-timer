@@ -114,25 +114,37 @@ body:not(.light-mode) #moon-icon { display: none !important; }
 
 .tabs { 
   display: flex; 
-  gap: 4px; 
+  gap: 0; 
   margin-bottom: 15px; 
   flex-shrink: 0; 
   background: var(--bg-dark);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   position: sticky;
-  top: 0;
+  top: -15px; /* Offset body padding */
+  margin-top: -15px;
+  padding: 15px 0 0 0;
   z-index: 10;
-  padding-bottom: 5px;
+  border-bottom: 1px solid var(--chart-grid);
 }
 
 .tab-btn {
   flex: 1;
-  background: transparent; border: none; color: #ffffff; font-family: inherit;
-  font-size: 0.6em; padding: 8px 2px; cursor: pointer; opacity: 0.5;
+  background: transparent; 
+  border: none; 
+  color: var(--text-color); 
+  font-family: inherit;
+  font-size: 0.65em; 
+  padding: 12px 2px; 
+  cursor: pointer; 
+  opacity: 0.5;
   text-align: center;
   white-space: nowrap;
   font-weight: bold;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
+  position: relative;
+  transition: opacity 0.2s, color 0.2s;
 }
 
 .tab-btn:hover {
@@ -142,17 +154,27 @@ body:not(.light-mode) #moon-icon { display: none !important; }
 
 .tab-btn.active { 
   opacity: 1; 
+  color: var(--green);
+  text-shadow: var(--glow);
+}
+
+.tab-btn.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 10%;
+  width: 80%;
+  height: 3px;
   background: var(--green);
-  color: #000000 !important;
+  box-shadow: var(--glow);
 }
 
 body.light-mode .tab-btn {
-  color: #333333;
+  color: #000000;
 }
 
 body.light-mode .tab-btn.active {
-  background: var(--green);
-  color: #ffffff !important;
+  color: var(--green);
 }
 
 .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 5px; }

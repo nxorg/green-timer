@@ -788,6 +788,11 @@ async function renderStats() {
 document.getElementById('clear-log').addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
 // --- Init ---
+initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
+async function init() { try { await renderHistory(); } catch(e){} } init();
+);
+
+// --- Init ---
 document.getElementById('ext-version').textContent = 'v' + api.runtime.getManifest().version;
 initTheme(); loadProblems(); initTimers(); requestLeetCodeTitle();
 async function init() { try { await renderHistory(); } catch(e){} } init();

@@ -6,6 +6,7 @@
 
 :root {
   --green: #00ff00;
+  --green-deep: #008000;
   --bg-dark: #0a0a0a;
   --bg-card: rgba(26, 26, 26, 0.9);
   --border-color: #00ff00;
@@ -16,6 +17,7 @@
 
 body.light-mode {
   --green: #008000;
+  --green-deep: #006400;
   --bg-dark: #ffffff;
   --bg-card: rgba(240, 240, 240, 0.9);
   --border-color: #008000;
@@ -121,14 +123,18 @@ body:not(.light-mode) #moon-icon { display: none !important; }
 
 .tabs { 
   display: flex; 
-  gap: 0; 
-  margin-bottom: 10px; 
+  gap: 4px; 
+  margin-bottom: 15px; 
   flex-shrink: 0; 
-  background: var(--bg-dark);
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
   position: sticky;
-  top: -15px; /* Aligns with container padding */
+  top: -15px;
   z-index: 10;
-  border-bottom: 1px solid var(--chart-grid);
+}
+
+body.light-mode .tabs {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .tab-btn {
@@ -137,36 +143,34 @@ body:not(.light-mode) #moon-icon { display: none !important; }
   border: none; 
   color: #ffffff; 
   font-family: inherit;
-  font-size: 0.65em; 
-  padding: 12px 2px; 
+  font-size: 0.6em; 
+  padding: 8px 2px; 
   cursor: pointer; 
   opacity: 0.6;
   text-align: center;
   white-space: nowrap;
   font-weight: bold;
   text-transform: uppercase;
-  transition: 0.2s;
 }
 
 .tab-btn:hover {
   opacity: 1;
-  color: var(--green);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .tab-btn.active { 
   opacity: 1; 
-  color: var(--green);
-  border-bottom: 2px solid var(--green);
+  background: var(--green-deep);
+  color: #ffffff !important;
 }
 
 body.light-mode .tab-btn {
   color: #000000;
-  opacity: 0.5;
 }
 
 body.light-mode .tab-btn.active {
-  color: var(--green);
-  opacity: 1;
+  background: var(--green);
+  color: #ffffff !important;
 }
 
 .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 5px; }

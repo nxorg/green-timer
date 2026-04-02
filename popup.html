@@ -59,6 +59,13 @@
 
     <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
+      <!-- ACTIVE: Top Priority -->
+      <div class="chart-section" id="active-chart-section" style="display: none; margin-bottom: 15px;">
+        <div class="chart-label">Currently Tracking (Mins)</div>
+        <div class="chart-container" style="height: 100px;"><canvas id="activeProblemsChart"></canvas></div>
+      </div>
+
+      <!-- SUMMARY CARDS -->
       <div class="stats-summary" style="flex-wrap: wrap; gap: 5px;">
         <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Today</div></div>
         <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-week">0</div><div class="stat-label">Week</div></div>
@@ -96,11 +103,6 @@
         <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 8px; overflow-x: auto;">
           <canvas id="contributionHeatmap" height="85"></canvas>
         </div>
-      </div>
-
-      <div class="chart-section" id="active-chart-section" style="display: none; margin-top: 10px;">
-        <div class="chart-label">Currently Tracking (Mins)</div>
-        <div class="chart-container" style="height: 100px;"><canvas id="activeProblemsChart"></canvas></div>
       </div>
       
       <div style="font-size: 0.7em; text-align: center; opacity: 0.6; margin-top: 10px;">

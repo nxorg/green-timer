@@ -112,7 +112,17 @@ body.light-mode #moon-icon { display: block !important; }
 body:not(.light-mode) #sun-icon { display: block !important; }
 body:not(.light-mode) #moon-icon { display: none !important; }
 
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; flex-shrink: 0; }
+.tabs { 
+  display: flex; 
+  gap: 2px; 
+  border-bottom: 1px solid var(--border-color); 
+  margin-bottom: 10px; 
+  flex-shrink: 0; 
+  background: var(--bg-dark);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
 
 .tab-btn {
   flex: 1;
@@ -120,7 +130,6 @@ body:not(.light-mode) #moon-icon { display: none !important; }
   font-size: 0.65em; padding: 10px 2px; cursor: pointer; opacity: 0.7;
   text-align: center;
   white-space: nowrap;
-  transition: background 0.1s, color 0.1s;
 }
 
 .tab-btn:hover {
@@ -133,6 +142,21 @@ body:not(.light-mode) #moon-icon { display: none !important; }
   font-weight: bold; 
   background: var(--green);
   color: var(--bg-dark);
+}
+
+body.light-mode .tab-btn.active {
+  background: rgba(0, 128, 0, 0.15);
+  color: #000000;
+  border-bottom: none;
+}
+
+body.light-mode .tab-btn:not(.active) {
+  color: #000000;
+  opacity: 0.5;
+}
+
+body.light-mode .tab-btn:not(.active):hover {
+  opacity: 1;
 }
 
 .tab-content { display: none; flex: 1; overflow-y: auto; padding-right: 5px; }

@@ -112,13 +112,13 @@
 
     <!-- 3. History Section -->
     <div id="log" class="tab-content">
-      <div class="input-row">
+      <div class="input-row" style="flex-shrink: 0;">
         <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 6px;">
       </div>
-      <div id="log-list" style="margin-top: 10px;"></div>
-      <div class="controls" style="margin-top: 15px; flex-shrink: 0; padding-bottom: 10px;">
-        <button id="export-csv">Export CSV</button>
-        <button id="clear-log">Clear All</button>
+      <div id="log-list" style="flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;"></div>
+      <div class="controls" style="margin-top: 10px; flex-shrink: 0; display: flex; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 10px; padding-bottom: 5px;">
+        <button id="export-csv" style="flex: 1;">Export CSV</button>
+        <button id="clear-log" style="flex: 1;">Clear All</button>
       </div>
     </div>
 

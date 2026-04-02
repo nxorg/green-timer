@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Green Timer & Stopwatch",
-  "version": "6.3",
+  "version": "6.4",
 
 
   "description": "A sleek #00ff00 themed timer and stopwatch extension with LeetCode auto-detection and stats.",

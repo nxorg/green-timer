@@ -91,10 +91,10 @@ body.light-mode #matrix-canvas {
 
 .version {
   font-size: 0.7em;
-  background: var(--green);
-  color: #000000;
-  padding: 2px 6px;
+  color: var(--green);
   font-weight: 700;
+  margin-left: 4px;
+  opacity: 0.8;
 }
 
 #theme-toggle {

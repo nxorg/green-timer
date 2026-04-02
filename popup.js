@@ -351,7 +351,7 @@ function filterHistory() {
     const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
     const editBtn = document.createElement('button'); editBtn.className = 'btn-small'; editBtn.textContent = 'EDIT'; editBtn.dataset.index = realIdx; editBtn.dataset.action = 'edit-history-note';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
-    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
     btnRow.appendChild(editBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
     topRow.appendChild(left); topRow.appendChild(btnRow); entry.appendChild(topRow);
     const nContainer = document.createElement('div'); nContainer.id = `history-note-container-${realIdx}`;
@@ -494,30 +494,58 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+async function tryRestore(rawText) {
+  try {
+    const data = JSON.parse(rawText.trim());
+    if (typeof data !== 'object' || data === null) throw new Error("Invalid data format.");
+    if (confirm('Importing will overwrite all current data. Continue?')) {
+      await activeStorage.clear();
+      await activeStorage.set(data);
+      alert('Data restored successfully!');
+      window.location.reload();
+    }
+  } catch (err) {
+    alert('Restore Failed: ' + err.message + '\n\nPlease ensure you are pasting valid JSON from a backup file.');
+  }
+}
+
+document.getElementById('toggle-manual-restore').addEventListener('click', () => {
+  const area = document.getElementById('manual-import-area');
+  const logList = document.getElementById('log-list');
+  const isHidden = area.style.display === 'none';
+  area.style.display = isHidden ? 'flex' : 'none';
+  logList.style.display = isHidden ? 'none' : 'block';
+  if (isHidden) {
+    if (confirm('Do you want to upload a JSON file? (Click Cancel to paste text manually)')) {
+      document.getElementById('import-file').click();
+    }
+  }
+});
+
+document.getElementById('cancel-manual-restore').addEventListener('click', () => {
+  document.getElementById('manual-import-area').style.display = 'none';
+  document.getElementById('log-list').style.display = 'block';
+});
+
+document.getElementById('confirm-manual-restore').addEventListener('click', () => {
+  const text = document.getElementById('manual-json-input').value;
+  if (!text.trim()) return alert("Please paste JSON data first.");
+  tryRestore(text);
+});
+
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => { tryRestore(ev.target.result); };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
 document.getElementById('export-json').addEventListener('click', async () => {
   const data = await activeStorage.get(null);
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click();
-});
-
-document.getElementById('import-json').addEventListener('click', () => document.getElementById('import-file').click());
-document.getElementById('import-file').addEventListener('change', (e) => {
-  const file = e.target.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async (ev) => {
-    try {
-      const data = JSON.parse(ev.target.result);
-      if (confirm('Importing will overwrite current data. Continue?')) {
-        await activeStorage.clear();
-        await activeStorage.set(data);
-        alert('Data restored successfully!');
-        window.location.reload();
-      }
-    } catch (err) { alert('Error: ' + err.message); }
-  };
-  reader.readAsText(file);
-  e.target.value = ''; // Reset to allow re-selecting same file
 });
 
 function playBeep() {

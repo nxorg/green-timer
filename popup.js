@@ -188,6 +188,8 @@ function formatMarkdown(text) {
   safe = safe.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/`(.*?)`/g, '<code style="background:rgba(0,255,0,0.1); padding:1px 3px; border:1px solid rgba(0,255,0,0.3);">$1</code>').replace(/\n/g, '<br>');
   return safe;
 }
+async function saveHistory() { await activeStorage.set({ leetcode_history: currentHistory }); }
+
 let currentHistory = [];
 async function renderHistory() { const l = document.getElementById('log-list'), d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || []; if (l) filterHistory(); }
 function filterHistory() {
@@ -224,20 +226,23 @@ function filterHistory() {
     const dateSpan = document.createElement('span'); dateSpan.style.marginLeft = "8px"; dateSpan.textContent = dd(i.timestamp); meta.appendChild(dateSpan);
     left.appendChild(meta);
     const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
-    const editBtn = document.createElement('button'); editBtn.className = 'btn-small'; editBtn.textContent = 'EDIT'; editBtn.dataset.index = realIdx; editBtn.dataset.action = 'edit-history-note';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
-    btnRow.appendChild(editBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
+    btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
     topRow.appendChild(left); topRow.appendChild(btnRow); entry.appendChild(topRow);
-    const nContainer = document.createElement('div'); nContainer.id = `history-note-container-${realIdx}`;
-    if (i.notes && i.notes.trim()) {
-      const toggleNotesBtn = document.createElement('button'); toggleNotesBtn.className = 'btn-small'; toggleNotesBtn.style.width = '100%'; toggleNotesBtn.style.marginTop = '4px'; toggleNotesBtn.style.textAlign = 'center'; toggleNotesBtn.style.fontSize = '0.7em'; toggleNotesBtn.textContent = '▶ VIEW NOTES / CODE'; toggleNotesBtn.dataset.index = realIdx; toggleNotesBtn.dataset.action = 'toggle-history-display';
-      const nDisplay = document.createElement('div'); nDisplay.className = 'history-notes'; nDisplay.id = `history-note-display-${realIdx}`; nDisplay.style.display = 'none'; nDisplay.innerHTML = formatMarkdown(i.notes);
-      nContainer.appendChild(toggleNotesBtn); nContainer.appendChild(nDisplay);
-    }
-    entry.appendChild(nContainer); l.appendChild(entry);
+    
+    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.width = '100%'; notesBtn.style.marginTop = '8px'; notesBtn.style.textAlign = 'center'; notesBtn.style.fontSize = '0.7em'; 
+    notesBtn.textContent = i.notes ? '▶ VIEW / EDIT NOTES' : '✚ ADD NOTE'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
+    
+    const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${realIdx}`; notesSection.style.display = 'none';
+    const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here...'; notesArea.value = i.notes || '';
+    const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
+    notesArea.addEventListener('input', (e) => { currentHistory[realIdx].notes = e.target.value; autoExpand(e.target); saveHistory(); });
+    
+    notesSection.appendChild(notesArea); entry.appendChild(notesBtn); entry.appendChild(notesSection); l.appendChild(entry);
   });
 }
+
 
 // --- JSON/CSV Restore ---
 async function handleRestore(text, isCSV = false) {
@@ -470,19 +475,20 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(() => e.target.textContent = ot, 1500);
         });
       }
-    } else if (action === 'edit-history-note') {
-      const newNote = prompt('Edit Note:', entry.notes || '');
-      if (newNote !== null) {
-        entry.notes = newNote;
-        await activeStorage.set({ leetcode_history: currentHistory });
-        renderHistory();
-      }
-    } else if (action === 'toggle-history-display') {
-      const nDisplay = document.getElementById(`history-note-display-${idx}`);
-      if (nDisplay) {
-        const isHidden = nDisplay.style.display === 'none';
-        nDisplay.style.display = isHidden ? 'block' : 'none';
-        e.target.textContent = isHidden ? '▼ HIDE NOTES / CODE' : '▶ VIEW NOTES / CODE';
+    } else if (action === 'toggle-history-notes') {
+      const nSection = document.getElementById(`history-notes-section-${idx}`);
+      if (nSection) {
+        const isHidden = nSection.style.display === 'none';
+        nSection.style.display = isHidden ? 'block' : 'none';
+        e.target.textContent = isHidden ? '▼ HIDE NOTES' : (entry.notes ? '▶ VIEW / EDIT NOTES' : '✚ ADD NOTE');
+        if (isHidden) {
+          const ta = nSection.querySelector('textarea');
+          if (ta) {
+            ta.style.height = 'auto';
+            ta.style.height = ta.scrollHeight + 'px';
+            ta.focus();
+          }
+        }
       }
     }
   });

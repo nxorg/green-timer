@@ -467,7 +467,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const addProbBtn = document.getElementById('add-problem'); if(addProbBtn) addProbBtn.addEventListener('click', async () => { const nEl = document.getElementById('new-problem-name'); if(!nEl) return; const name = nEl.value.trim(); if (name) { let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : ""; if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", ""); problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false }); nEl.value = ''; detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval(); } });
   const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
   
-  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { const f = document.getElementById('import-file'); if(f) f.click(); });
+  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { 
+    if (window.location.search.indexOf('full=1') === -1 && window.innerWidth < 800) {
+      api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') });
+    } else {
+      const f = document.getElementById('import-file'); if(f) f.click(); 
+    }
+  });
   const importFile = document.getElementById('import-file'); if(importFile) importFile.addEventListener('change', (e) => { 
     const file = e.target.files[0]; if (!file) return; 
     const reader = new FileReader(); 
@@ -484,4 +490,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Final Init
   await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
+  
+  if (window.location.search.indexOf('full=1') !== -1) {
+    setTimeout(() => { const logBtn = document.querySelector('.tab-btn[data-tab="log"]'); if(logBtn) logBtn.click(); }, 50);
+  }
 });

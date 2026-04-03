@@ -1,7 +1,7 @@
 // Efficient LeetCode Detection using MutationObserver
 function getLeetCodeDetails() {
   const selectors = [
-    'div[data-cy="question-title"] span',
+    'div[data-cy="question-title"]',
     '.text-title-large',
     '.css-v3d350',
     'h4',
@@ -16,18 +16,23 @@ function getLeetCodeDetails() {
   
   if (!titleEl) return null;
 
-  const fullTitle = titleEl.innerText.trim();
+  let fullTitle = titleEl.innerText.trim();
+  
+  // Clean up potential extra whitespace or newlines
+  fullTitle = fullTitle.replace(/\s+/g, ' ');
+
   let number = "";
   let name = fullTitle;
 
-  if (fullTitle.includes('. ')) {
+  // Pattern: "1. Two Sum" or "1 Two Sum" or "#1 Two Sum"
+  const match = fullTitle.match(/^#?(\d+)[\.\s]+(.*)/);
+  if (match) {
+    number = match[1];
+    name = match[2].trim();
+  } else if (fullTitle.includes('. ')) {
     const parts = fullTitle.split('. ');
     number = parts[0];
     name = parts.slice(1).join('. ');
-  } else if (/^\d+\./.test(fullTitle)) {
-    const dotIndex = fullTitle.indexOf('.');
-    number = fullTitle.substring(0, dotIndex);
-    name = fullTitle.substring(dotIndex + 1).trim();
   }
 
   // Difficulty detection

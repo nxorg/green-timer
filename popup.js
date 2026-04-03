@@ -142,7 +142,12 @@ function renderProblems() {
   const c = document.getElementById('problems-container'); if (!c) return; c.replaceChildren();
   if (problems.length === 0) {
     const welcome = document.createElement('div'); welcome.style.textAlign = 'center'; welcome.style.padding = '40px 20px'; welcome.style.opacity = '0.6';
-    welcome.innerHTML = `<div style="font-size: 2em; margin-bottom: 10px;">👋</div><div style="font-weight: bold; color: var(--green);">Welcome, Coder!</div><div style="font-size: 0.8em; margin-top: 5px;">Add a LeetCode problem above to start tracking your journey.</div>`;
+    
+    const icon = document.createElement('div'); icon.style.fontSize = '2em'; icon.style.marginBottom = '10px'; icon.textContent = '👋';
+    const title = document.createElement('div'); title.style.fontWeight = 'bold'; title.style.color = 'var(--green)'; title.textContent = 'Welcome, Coder!';
+    const desc = document.createElement('div'); desc.style.fontSize = '0.8em'; desc.style.marginTop = '5px'; desc.textContent = 'Add a LeetCode problem above to start tracking your journey.';
+    
+    welcome.appendChild(icon); welcome.appendChild(title); welcome.appendChild(desc);
     c.appendChild(welcome); return;
   }
   problems.forEach((p, i) => {
@@ -202,7 +207,19 @@ function filterHistory() {
   const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
   const summary = document.createElement('div'); summary.className = 'log-entry'; summary.style.padding = '8px'; summary.style.borderStyle = 'solid';
   summary.style.display = 'flex'; summary.style.justifyContent = 'space-between'; summary.style.fontSize = '0.8em';
-  summary.innerHTML = `<span><b>TOTAL:</b> ${filtered.length} problems</span> <span><b>TIME:</b> ${formatTime(totalMs)}</span>`;
+  
+  const totalCountSpan = document.createElement('span');
+  const countBold = document.createElement('b'); countBold.textContent = 'TOTAL: ';
+  totalCountSpan.appendChild(countBold);
+  totalCountSpan.appendChild(document.createTextNode(`${filtered.length} problems`));
+  
+  const totalTimeSpan = document.createElement('span');
+  const timeBold = document.createElement('b'); timeBold.textContent = 'TIME: ';
+  totalTimeSpan.appendChild(timeBold);
+  totalTimeSpan.appendChild(document.createTextNode(formatTime(totalMs)));
+  
+  summary.appendChild(totalCountSpan);
+  summary.appendChild(totalTimeSpan);
   l.appendChild(summary);
   filtered.forEach((i, idx) => {
     let dn = (i.number ? i.number + ". " : "") + i.name; if (dn.length > 50) dn = dn.substring(0, 47) + "...";

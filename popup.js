@@ -226,20 +226,19 @@ function filterHistory() {
     const dateSpan = document.createElement('span'); dateSpan.style.marginLeft = "8px"; dateSpan.textContent = dd(i.timestamp); meta.appendChild(dateSpan);
     left.appendChild(meta);
     const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
+    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
+    notesBtn.textContent = i.notes ? 'NOTES' : '✚ NOTE'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
-    btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
+    btnRow.appendChild(notesBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
     topRow.appendChild(left); topRow.appendChild(btnRow); entry.appendChild(topRow);
-    
-    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.width = '100%'; notesBtn.style.marginTop = '8px'; notesBtn.style.textAlign = 'center'; notesBtn.style.fontSize = '0.7em'; 
-    notesBtn.textContent = i.notes ? '▶ VIEW / EDIT NOTES' : '✚ ADD NOTE'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
     
     const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${realIdx}`; notesSection.style.display = 'none';
     const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here...'; notesArea.value = i.notes || '';
     const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
     notesArea.addEventListener('input', (e) => { currentHistory[realIdx].notes = e.target.value; autoExpand(e.target); saveHistory(); });
     
-    notesSection.appendChild(notesArea); entry.appendChild(notesBtn); entry.appendChild(notesSection); l.appendChild(entry);
+    notesSection.appendChild(notesArea); entry.appendChild(notesSection); l.appendChild(entry);
   });
 }
 
@@ -480,7 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (nSection) {
         const isHidden = nSection.style.display === 'none';
         nSection.style.display = isHidden ? 'block' : 'none';
-        e.target.textContent = isHidden ? '▼ HIDE NOTES' : (entry.notes ? '▶ VIEW / EDIT NOTES' : '✚ ADD NOTE');
+        e.target.textContent = isHidden ? '▼ HIDE' : (entry.notes ? 'NOTES' : '✚ NOTE');
         if (isHidden) {
           const ta = nSection.querySelector('textarea');
           if (ta) {

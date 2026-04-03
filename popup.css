@@ -110,7 +110,7 @@ body {
   opacity: 0.8;
 }
 
-#theme-toggle:hover {
+#theme-toggle:hover, #expand-page-btn:hover {
   opacity: 1;
 }
 
@@ -555,6 +555,9 @@ body.full-page .brand-box img {
 }
 body.full-page .version {
   font-size: 0.8em;
+}
+body.full-page #expand-page-btn {
+  display: none !important;
 }
 body.full-page .chart-container {
   height: 250px;

@@ -1,59 +1,63 @@
 # Green Timer & Stopwatch
 
-**The best LeetCode time tracker and habit builder to help you become a coding master.**
+**Engineering Innovation for Everyone**
 
-A sleek, #00ff00 (Matrix-style) themed browser extension designed specifically for developers. Track your problem-solving speed, analyze your habits with live charts, and sync your progress across all your devices.
+The ultimate LeetCode companion designed to master coding interviews through disciplined time tracking and habit building.
 
----
-
-## 🚀 Features
-
-### Basic Features
-- ✅ **Multi-Problem Tracking:** Add multiple LeetCode problems and track each one with independent timers.
-- ✅ **Advanced Analytics:** Detailed statistics dashboard with 7-day progress reports and hourly activity charts.
-- ✅ **Visual History:** A clean log of all solved problems with timestamps.
-
-### Advanced Features
-- ✅ **Auto-Detection:** Automatically grabs problem names from LeetCode pages.
-- ✅ **Account Sync:** Automatic backup and sync with your Google or Firefox account via `storage.sync`.
-- ✅ **Matrix Rain:** High-contrast developer theme with subtle falling code animation.
-- ✅ **Data Export:** Download your entire study history as a CSV file for Excel/Sheets.
+A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-detection, comprehensive analytics, and a fully responsive dashboard.
 
 ---
 
-## 🛡️ OUR PROMISE
-**All data is stored in Local/Sync Storage of browsers, and not sent anywhere.**
+## 🚀 Key Features
+
+### ⏱️ Tracking & Detection
+- **Auto-Detection:** Automatically extracts problem number and name from LeetCode.
+- **Multi-Problem Tracking:** Manage multiple active problems with independent stopwatches.
+- **Standalone Timer & SW:** Compact dedicated timer and stopwatch for general use.
+
+### 📊 Advanced Analytics
+- **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
+- **Activity Heatmap:** Yearly contribution heatmap (GitHub-style) to track consistency.
+- **Deep Insights:** Hourly activity charts, 7-day and 30-day progress reports, and difficulty distribution.
+- **Streaks:** Maintain and visualize your daily coding streaks.
+
+### 📝 Rich History & Notes
+- **Inline Editing:** Edit problem notes directly within the glass-terminal history log.
+- **Markdown Support:** Format your notes/code snippets with Markdown.
+- **Export/Restore:** Robust JSON backup and CSV export for external analysis.
+
+### 🎨 Premium UI/UX
+- **High Contrast:** Instant switching between Dark (#00ff00) and Light (#008000) modes.
+- **Responsive:** Fluid layout that adapts perfectly from a tiny popup to a 4K monitor or mobile screen.
+- **Fast:** Zero CSS transitions for instant, snappy interaction.
 
 ---
 
-## 🛠️ How to Use
-
-1. **Pin the Icon:** Pin the green timer icon to your browser's toolbar.
-2. **Browse LeetCode:** Open any problem on LeetCode.
-3. **Add & Track:** Open the extension; the problem name is detected automatically! Click **Add** then **Start** to begin your session.
-4. **Finish & Analyze:** Click **Finish** to log your time. Visit the **Stats** tab to see your streaks and productivity rhythm.
+## 🛡️ Privacy First
+**All data is stored locally within your browser.** We never send your data to 3rd party servers. Your privacy is our foundational engineering principle.
 
 ---
 
-## 📦 Installation (Development Mode)
+## 🛠️ Installation (Development Mode)
 
 ### For Firefox
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click **"Load Temporary Add-on..."**.
 3. Select the `manifest.json` from this project folder.
 
-### For Chrome / Edge
+### For Chrome / Edge / Brave
 1. Open `chrome://extensions/`.
 2. Enable **"Developer mode"** (top right toggle).
 3. Click **"Load unpacked"** and select the project folder.
 
 ---
 
-## 📜 License & Open Source
+## 📜 License
 
-This project is licensed under the **GNU General Public License v3.0 (GPLv3)**. We believe in open-source and free software.
+This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
 - **Source Code:** [https://github.com/nxorg/green-timer](https://github.com/nxorg/green-timer)
-- **Submit Issues:** [https://github.com/nxorg/green-timer/issues](https://github.com/nxorg/green-timer/issues)
+- **Organization:** [https://nxorg.xchip.in/](https://nxorg.xchip.in/)
+- **Creator:** [Manoj Kumar](https://manoj.xchip.in)
 
 Copyright (C) 2026 Manoj Kumar

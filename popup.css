@@ -120,18 +120,22 @@ body.light-mode #moon-icon { display: block !important; }
 body:not(.light-mode) #sun-icon { display: block !important; }
 body:not(.light-mode) #moon-icon { display: none !important; }
 
-.tabs { 
-  display: flex; 
-  gap: 4px; 
-  margin-bottom: 15px; 
-  flex-shrink: 0; 
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 15px;
+  flex-shrink: 0;
   background: rgba(255, 255, 255, 0.05);
   padding: 4px;
   position: sticky;
   top: -15px;
   z-index: 10;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-
+.tabs::-webkit-scrollbar {
+  display: none;
+}
 body.light-mode .tabs {
   background: rgba(0, 0, 0, 0.05);
 }
@@ -575,13 +579,51 @@ body.full-page .problem-time {
 
 /* Mobile Adjustments for Full Page */
 @media (max-width: 500px) {
-  body.full-page .container { padding: 10px; gap: 10px; }
+  body.full-page .container { padding: 10px; gap: 10px; width: 100%; max-width: 100vw; overflow-x: hidden; }
   body.full-page .display { font-size: 2.5em; padding: 15px 5px; margin: 10px 0; }
-  body.full-page .header { margin-bottom: 5px; }
-  body.full-page .logo { font-size: 1.2em; }
-  body.full-page .brand-box img { width: 24px; height: 24px; }
+  
+  body.full-page .header { 
+    flex-wrap: wrap; 
+    gap: 8px; 
+    margin-bottom: 5px; 
+    justify-content: space-between;
+  }
+  body.full-page .brand-box { 
+    width: 100%; 
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  body.full-page .header-actions {
+    margin-left: auto !important;
+  }
+  body.full-page .header-actions svg {
+    width: 18px;
+    height: 18px;
+  }
+  body.full-page #theme-toggle {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+  }
+  
+  body.full-page .logo { font-size: 1.1em; letter-spacing: 0px; }
+  body.full-page .brand-box img { width: 20px; height: 20px; }
   body.full-page .version { font-size: 0.7em; }
-  body.full-page .tab-btn { font-size: 0.65em; padding: 10px 4px; }
+  
+  body.full-page .tabs { 
+    width: 100%;
+    overflow-x: auto; 
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding-bottom: 2px;
+  }
+  body.full-page .tab-btn { 
+    font-size: 0.75em; 
+    padding: 10px 12px; 
+    flex: 0 0 auto;
+  }
   
   .presets-grid { grid-template-columns: repeat(2, 1fr); gap: 5px; }
   .about-grid { grid-template-columns: 1fr; gap: 5px; }

@@ -112,9 +112,13 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 });
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener((details) => {
   updateBadge();
   setupDailyAlarm();
+  
+  if (details.reason === 'install') {
+    chrome.tabs.create({ url: 'welcome.html' });
+  }
 });
 chrome.runtime.onStartup.addListener(() => {
   updateBadge();

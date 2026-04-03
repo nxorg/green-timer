@@ -453,6 +453,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
   const clearLog = document.getElementById('clear-log'); if(clearLog) clearLog.addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
+  const logList = document.getElementById('log-list'); if(logList) logList.addEventListener('click', async (e) => {
+    const action = e.target.dataset.action, idx = parseInt(e.target.dataset.index);
+    if (!action || isNaN(idx)) return;
+    const entry = currentHistory[idx];
+    if (action === 'delete-history') {
+      if (confirm('Delete this entry?')) {
+        currentHistory.splice(idx, 1);
+        await activeStorage.set({ leetcode_history: currentHistory });
+        renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats();
+      }
+    } else if (action === 'copy-history-note') {
+      if (entry.notes) {
+        navigator.clipboard.writeText(entry.notes).then(() => {
+          const ot = e.target.textContent; e.target.textContent = 'COPIED!';
+          setTimeout(() => e.target.textContent = ot, 1500);
+        });
+      }
+    } else if (action === 'edit-history-note') {
+      const newNote = prompt('Edit Note:', entry.notes || '');
+      if (newNote !== null) {
+        entry.notes = newNote;
+        await activeStorage.set({ leetcode_history: currentHistory });
+        renderHistory();
+      }
+    } else if (action === 'toggle-history-display') {
+      const nDisplay = document.getElementById(`history-note-display-${idx}`);
+      if (nDisplay) {
+        const isHidden = nDisplay.style.display === 'none';
+        nDisplay.style.display = isHidden ? 'block' : 'none';
+        e.target.textContent = isHidden ? '▼ HIDE NOTES / CODE' : '▶ VIEW NOTES / CODE';
+      }
+    }
+  });
+
   // 3. Final Init
   await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
 

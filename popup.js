@@ -415,6 +415,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   const themeBtn = document.getElementById('theme-toggle'); if(themeBtn) themeBtn.addEventListener('click', async () => { document.body.classList.toggle('light-mode'); await activeStorage.set({ theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' }); renderStats(); });
   const expandBtn = document.getElementById('expand-page-btn'); if(expandBtn) expandBtn.addEventListener('click', () => { api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); });
+  const historySearch = document.getElementById('history-search'); if(historySearch) historySearch.addEventListener('input', filterHistory);
   
   const tStart = document.getElementById('timer-start'); if(tStart) tStart.addEventListener('click', async () => { const m = parseInt(document.getElementById('timer-input').value) || 0; if (m > 0) { timerTargetTime = Date.now() + m * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); } });
   const tPause = document.getElementById('timer-pause'); if(tPause) tPause.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });

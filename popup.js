@@ -227,7 +227,7 @@ function filterHistory() {
     left.appendChild(meta);
     const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
     const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
-    notesBtn.textContent = i.notes ? 'NOTES' : '✚ NOTE'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
+    notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
     btnRow.appendChild(notesBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
@@ -479,7 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (nSection) {
         const isHidden = nSection.style.display === 'none';
         nSection.style.display = isHidden ? 'block' : 'none';
-        e.target.textContent = isHidden ? '▼ HIDE' : (entry.notes ? 'NOTES' : '✚ NOTE');
+        e.target.textContent = isHidden ? '▼ HIDE' : (entry.notes ? 'EDIT' : 'ADD');
         if (isHidden) {
           const ta = nSection.querySelector('textarea');
           if (ta) {

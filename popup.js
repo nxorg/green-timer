@@ -490,8 +490,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Final Init
   await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
-  
-  if (window.location.search.indexOf('full=1') !== -1) {
+
+  if (window.location.search.indexOf('full=1') !== -1 || window.innerWidth > 500) {
+    document.body.classList.add('full-page');
     setTimeout(() => { const logBtn = document.querySelector('.tab-btn[data-tab="log"]'); if(logBtn) logBtn.click(); }, 50);
   }
-});
+  });

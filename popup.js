@@ -200,7 +200,7 @@ function renderProblems() {
     controls.appendChild(time); controls.appendChild(toggleBtn); controls.appendChild(resetBtn); controls.appendChild(finishBtn);
     r.appendChild(header); r.appendChild(controls);
     const notesSection = document.createElement('div'); notesSection.id = `notes-section-${i}`; notesSection.style.display = p.showNotes ? 'block' : 'none';
-    const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes...'; notesArea.value = p.notes || '';
+    const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here (will be saved in history)...'; notesArea.value = p.notes || '';
     const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
     notesArea.addEventListener('input', (e) => { problems[i].notes = e.target.value; autoExpand(e.target); saveProblems(); });
     setTimeout(() => autoExpand(notesArea), 0);
@@ -276,8 +276,12 @@ function filterHistory() {
   });
 }
 
-// --- JSON/CSV System ---
+// --- JSON/CSV Restore ---
 async function handleRestore(text, isCSV = false) {
+  const importBtn = document.getElementById('import-btn');
+  const originalText = importBtn ? importBtn.textContent : 'RESTORE';
+  const showStatus = (msg) => { if (importBtn) { importBtn.textContent = msg; setTimeout(() => importBtn.textContent = originalText, 2500); } };
+
   try {
     const rawText = text.trim();
     if (isCSV) {
@@ -293,17 +297,22 @@ async function handleRestore(text, isCSV = false) {
           logs.push({ number: clean[0], name: clean[1], difficulty: clean[2], timeStr: clean[3], notes: clean[4], url: clean[5] || "", timestamp: ts });
         }
       }
-      if (confirm(`Found ${logs.length} entries. Append to history?`)) {
-        const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || [];
-        await activeStorage.set({ leetcode_history: logs.concat(h) });
-        alert('CSV logs imported!'); await loadProblems(); await renderHistory(); if (document.getElementById('stats').classList.contains('active')) await renderStats();
-      }
+      
+      const d = await activeStorage.get('leetcode_history');
+      const h = d.leetcode_history || [];
+      await activeStorage.set({ leetcode_history: logs.concat(h) });
+      
+      await loadProblems(); 
+      await renderHistory(); 
+      if (document.getElementById('stats').classList.contains('active')) await renderStats();
+      
+      showStatus('IMPORTED!');
     } else {
       let data = null;
       try {
         data = JSON.parse(rawText);
       } catch (err) {
-        // Simple fallback parser for the tab-separated format user provided
+        // Fallback for simple key-value dumps
         data = {};
         const lines = rawText.split('\n');
         let currentKey = "";
@@ -314,18 +323,26 @@ async function handleRestore(text, isCSV = false) {
             if (!data[currentKey]) data[currentKey] = currentKey.includes('history') || currentKey.includes('problems') ? [] : {};
           }
         });
-        if (Object.keys(data).length === 0) throw err; // Re-throw if fallback fails
+        if (Object.keys(data).length === 0) throw err;
       }
       
-      if (confirm('Overwriting all data with this backup. Continue?')) {
-        await activeStorage.clear(); await activeStorage.set(data); 
-        alert('Restored successfully!'); 
-        problems = data.leetcode_problems || [];
-        await renderProblems(); await renderHistory(); await initTheme(); await initTimers();
-        if (document.getElementById('stats').classList.contains('active')) await renderStats();
-      }
+      // Perform restore WITHOUT confirm() or alert() to prevent popup auto-close issues
+      await activeStorage.clear(); 
+      await activeStorage.set(data); 
+      
+      problems = data.leetcode_problems || [];
+      await renderProblems(); 
+      await renderHistory(); 
+      await initTheme(); 
+      await initTimers();
+      if (document.getElementById('stats').classList.contains('active')) await renderStats();
+      
+      showStatus('RESTORED!');
     }
-  } catch (err) { alert('Restore Failed: ' + err.message); }
+  } catch (err) { 
+    showStatus('FAILED!');
+    console.error('Restore Failed:', err); 
+  }
 }
 
 // --- Stats & Heatmap ---
@@ -420,33 +437,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (verEl) verEl.textContent = 'v' + api.runtime.getManifest().version;
   } catch (e) {}
 
+  // 1. Migration from sync to local
   if (api.storage && api.storage.local && api.storage.sync) {
-    const localData = await activeStorage.get(null);
-    if (Object.keys(localData).length === 0) {
-      const syncData = await new Promise(res => api.storage.sync.get(null, d => res(d || {})));
-      if (Object.keys(syncData).length > 0) await activeStorage.set(syncData);
-    }
+    try {
+      const localData = await activeStorage.get(null);
+      if (Object.keys(localData).length === 0) {
+        const syncData = await new Promise(res => api.storage.sync.get(null, d => res(d || {})));
+        if (Object.keys(syncData).length > 0) await activeStorage.set(syncData);
+      }
+    } catch(e) {}
   }
 
+  // 2. Setup Listeners
   initTabs();
   const themeBtn = document.getElementById('theme-toggle'); if(themeBtn) themeBtn.addEventListener('click', async () => { document.body.classList.toggle('light-mode'); await activeStorage.set({ theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' }); renderStats(); });
+  
   const tStart = document.getElementById('timer-start'); if(tStart) tStart.addEventListener('click', async () => { const m = parseInt(document.getElementById('timer-input').value) || 0; if (m > 0) { timerTargetTime = Date.now() + m * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); } });
   const tPause = document.getElementById('timer-pause'); if(tPause) tPause.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
   const tReset = document.getElementById('timer-reset'); if(tReset) tReset.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); const d = document.getElementById('timer-display'); if(d) d.textContent = '00:00:00.00'; });
+  
   const sStart = document.getElementById('sw-start'); if(sStart) sStart.addEventListener('click', async () => { if (swInterval) return; swStartTime = Date.now() - swElapsedTime; await activeStorage.set({ sw_is_running: true, sw_start_time: swStartTime }); startStandaloneSwUI(); });
   const sPause = document.getElementById('sw-pause'); if(sPause) sPause.addEventListener('click', async () => { if (swInterval) { clearInterval(swInterval); swInterval = null; } swElapsedTime = Date.now() - swStartTime; await activeStorage.set({ sw_is_running: false, sw_elapsed: swElapsedTime }); updateSwDisplay(); });
   const sReset = document.getElementById('sw-reset'); if(sReset) sReset.addEventListener('click', async () => { clearInterval(swInterval); swInterval = null; swElapsedTime = 0; await activeStorage.set({ sw_is_running: false, sw_elapsed: 0 }); updateSwDisplay(); });
+  
   document.querySelectorAll('.preset-card').forEach(btn => btn.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) inp.value = btn.dataset.time; }));
   const tInc = document.getElementById('timer-inc'); if(tInc) tInc.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) inp.value = parseInt(inp.value || 0) + 1; });
   const tDec = document.getElementById('timer-dec'); if(tDec) tDec.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) { const v = parseInt(inp.value || 0); if (v > 1) inp.value = v - 1; } });
+  
   const addProbBtn = document.getElementById('add-problem'); if(addProbBtn) addProbBtn.addEventListener('click', async () => { const nEl = document.getElementById('new-problem-name'); if(!nEl) return; const name = nEl.value.trim(); if (name) { let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : ""; if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", ""); problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false }); nEl.value = ''; detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval(); } });
   const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
-  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => document.getElementById('import-file').click());
+  
+  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { const f = document.getElementById('import-file'); if(f) f.click(); });
   const importFile = document.getElementById('import-file'); if(importFile) importFile.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = (ev) => handleRestore(ev.target.result, file.name.endsWith('.csv')); reader.readAsText(file); e.target.value = ''; });
   const exportJson = document.getElementById('export-json'); if(exportJson) exportJson.addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
   const exportCsv = document.getElementById('export-csv'); if(exportCsv) exportCsv.addEventListener('click', async () => { const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return; let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; }); const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click(); });
   const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
   const clearLog = document.getElementById('clear-log'); if(clearLog) clearLog.addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
+  // 3. Final Init
   await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
 });

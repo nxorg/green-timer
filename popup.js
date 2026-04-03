@@ -467,16 +467,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   const addProbBtn = document.getElementById('add-problem'); if(addProbBtn) addProbBtn.addEventListener('click', async () => { const nEl = document.getElementById('new-problem-name'); if(!nEl) return; const name = nEl.value.trim(); if (name) { let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : ""; if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", ""); problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false }); nEl.value = ''; detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval(); } });
   const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
   
-  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { const f = document.getElementById('import-file'); if(f) f.click(); });
-  const importFile = document.getElementById('import-file'); if(importFile) importFile.addEventListener('change', (e) => { 
-    const file = e.target.files[0]; if (!file) return; 
-    const reader = new FileReader(); 
-    reader.onload = (ev) => { 
-      handleRestore(ev.target.result, file.name.endsWith('.csv')); 
-      e.target.value = ''; 
-    }; 
-    reader.readAsText(file); 
-  });
+  const importBtn = document.getElementById('import-btn'); 
+  const pasteSection = document.getElementById('paste-restore-section');
+  const pasteData = document.getElementById('paste-restore-data');
+  const pasteSubmit = document.getElementById('paste-restore-submit');
+
+  if (importBtn) {
+    importBtn.addEventListener('click', () => {
+      if (pasteSection) {
+        pasteSection.style.display = pasteSection.style.display === 'none' ? 'block' : 'none';
+        if (pasteSection.style.display === 'block' && pasteData) pasteData.focus();
+      }
+    });
+  }
+
+  if (pasteSubmit) {
+    pasteSubmit.addEventListener('click', () => {
+      const val = pasteData ? pasteData.value.trim() : '';
+      if (!val) return;
+      const isCSV = val.startsWith('Number,Name') || (val.includes(',') && !val.startsWith('{'));
+      handleRestore(val, isCSV);
+      if (pasteData) pasteData.value = '';
+      if (pasteSection) pasteSection.style.display = 'none';
+    });
+  }
+  
   const exportJson = document.getElementById('export-json'); if(exportJson) exportJson.addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
   const exportCsv = document.getElementById('export-csv'); if(exportCsv) exportCsv.addEventListener('click', async () => { const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return; let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; }); const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click(); });
   const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });

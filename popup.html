@@ -83,13 +83,21 @@
 
     <!-- 2. Statistics Section -->
     <div id="stats" class="tab-content">
-      <!-- SUMMARY CARDS -->
-      <div class="stats-summary" style="flex-wrap: wrap; gap: 5px;">
-        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-today">0</div><div class="stat-label">Today</div></div>
-        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-week">0</div><div class="stat-label">Week</div></div>
-        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-month">0</div><div class="stat-label">Month</div></div>
-        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="stat-year">0</div><div class="stat-label">Year</div></div>
-        <div class="stat-card" style="min-width: 60px;"><div class="stat-value" id="current-streak">0</div><div class="stat-label">Streak</div></div>
+      <!-- SUMMARY CARDS: COUNTS -->
+      <div class="stats-summary" style="flex-wrap: wrap; gap: 5px; margin-bottom: 5px;">
+        <div class="stat-card" style="min-width: 65px;"><div class="stat-value" id="stat-today" style="font-size: 1em;">0</div><div class="stat-label">Today</div></div>
+        <div class="stat-card" style="min-width: 65px;"><div class="stat-value" id="stat-week" style="font-size: 1em;">0</div><div class="stat-label">Week</div></div>
+        <div class="stat-card" style="min-width: 65px;"><div class="stat-value" id="stat-month" style="font-size: 1em;">0</div><div class="stat-label">Month</div></div>
+        <div class="stat-card" style="min-width: 65px;"><div class="stat-value" id="stat-year" style="font-size: 1em;">0</div><div class="stat-label">Year</div></div>
+        <div class="stat-card" style="min-width: 65px;"><div class="stat-value" id="current-streak" style="font-size: 1em;">0</div><div class="stat-label">Streak</div></div>
+      </div>
+
+      <!-- SUMMARY CARDS: TIME SPENT -->
+      <div class="stats-summary" style="flex-wrap: wrap; gap: 5px; margin-bottom: 10px;">
+        <div class="stat-card" style="min-width: 65px; border-color: rgba(0,255,0,0.2);"><div class="stat-value" id="time-today" style="font-size: 0.9em; color: var(--text-color);">0m</div><div class="stat-label">Time Today</div></div>
+        <div class="stat-card" style="min-width: 65px; border-color: rgba(0,255,0,0.2);"><div class="stat-value" id="time-week" style="font-size: 0.9em; color: var(--text-color);">0h</div><div class="stat-label">Time Week</div></div>
+        <div class="stat-card" style="min-width: 65px; border-color: rgba(0,255,0,0.2);"><div class="stat-value" id="time-month" style="font-size: 0.9em; color: var(--text-color);">0h</div><div class="stat-label">Time Month</div></div>
+        <div class="stat-card" style="min-width: 65px; border-color: rgba(0,255,0,0.2);"><div class="stat-value" id="time-all" style="font-size: 0.9em; color: var(--text-color);">0h</div><div class="stat-label">Total Time</div></div>
       </div>
 
       <!-- ACTIVE: Top Priority -->
@@ -290,7 +298,7 @@
       <div style="text-align: center; margin-bottom: 20px;">
         <a href="https://nxorg.xchip.in/" target="_blank" style="display: inline-block; text-decoration: none;">
           <img src="icons/nxorg-logo.svg" width="64" height="64" alt="NXORG Logo" style="display: block; margin: 0 auto;">
-          <div style="font-weight: bold; font-size: 1.4em; color: var(--green); letter-spacing: 2px; margin-top: 8px;">NXORG</div>
+          <div style="font-weight: bold; font-size: 1.4em; color: var(--green); letter-spacing: 2px; margin-top: 8px;">NX ORG</div>
         </a>
         <div style="font-style: italic; color: #00ff00; font-size: 0.75em; margin-top: 2px;">Engineering Innovation for Everyone</div>
         <div style="font-size: 0.6em; opacity: 0.6; margin-top: 8px; letter-spacing: 1px;">

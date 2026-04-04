@@ -538,8 +538,23 @@ function renderProblems() {
 }
 
 function startUIInterval() {
-  if (uiInterval) clearInterval(uiInterval); if (!problems.some(p => p.isRunning)) return;
-  uiInterval = setInterval(() => { problems.forEach((p, i) => { if (p.isRunning) { const el = document.getElementById(`time-${i}`); if (el) el.textContent = formatTime(Date.now() - p.startTime, true); } }); }, 100);
+  if (uiInterval) clearInterval(uiInterval); 
+  if (!problems.some(p => p.isRunning)) {
+    if (document.getElementById('stats').classList.contains('active')) renderStats();
+    return;
+  }
+  uiInterval = setInterval(() => { 
+    problems.forEach((p, i) => { 
+      if (p.isRunning) { 
+        const el = document.getElementById(`time-${i}`); 
+        if (el) el.textContent = formatTime(Date.now() - p.startTime, true); 
+      } 
+    });
+    // Update stats tab less frequently to save performance (every 1s)
+    if (Date.now() % 1000 < 150) {
+      if (document.getElementById('stats').classList.contains('active')) renderStats();
+    }
+  }, 100);
 }
 
 // --- History ---
@@ -766,18 +781,37 @@ async function handleRestore(text, isCSV = false) {
 // --- Stats & Heatmap ---
 let hChart, mChart, aChart, hoChart, dChart, selectedHeatmapYear = 'rolling';
 function renderHeatmap(logs, isLight, mainGreen) {
-  const canvas = document.getElementById('contributionHeatmap'), selector = document.getElementById('heatmap-year-selector'); if (!canvas || !selector) return;
+  const canvas = document.getElementById('contributionHeatmap'), selector = document.getElementById('heatmap-year-selector'); 
+  if (!canvas || !selector) return;
+  const container = canvas.parentElement; if (!container) return;
+
   const years = [...new Set(logs.filter(l => l && l.timestamp).map(l => new Date(l.timestamp).getFullYear()))].sort((a,b) => b-a);
   const currentOptions = Array.from(selector.options).map(o => o.value);
   years.forEach(y => { if (!currentOptions.includes(y.toString())) { const opt = document.createElement('option'); opt.value = y; opt.textContent = y; selector.appendChild(opt); } });
-  const ctx = canvas.getContext('2d'), boxSize = 7, gap = 2, weeks = 53, days = 7, topP = 15, leftP = 20;
-  canvas.width = (weeks * (boxSize + gap)) + leftP + 50; canvas.height = (days * (boxSize + gap)) + topP;
+  
+  const ctx = canvas.getContext('2d');
+  const dPR = window.devicePixelRatio || 1;
+  
+  // Calculate dynamic size
+  const containerWidth = container.clientWidth - 16;
+  const boxSize = Math.max(Math.floor((containerWidth - 50) / 54), 7);
+  const gap = 2, weeks = 53, days = 7, topP = 15, leftP = 20;
+  
+  canvas.width = (leftP + (weeks * (boxSize + gap)) + 20) * dPR; 
+  canvas.height = (topP + (days * (boxSize + gap))) * dPR;
+  canvas.style.width = (canvas.width / dPR) + 'px';
+  canvas.style.height = (canvas.height / dPR) + 'px';
+  ctx.scale(dPR, dPR);
+
   const now = new Date(); let startD, endD;
   if (selectedHeatmapYear === 'rolling') { startD = new Date(now); startD.setDate(now.getDate() - 365); startD.setDate(startD.getDate() - startD.getDay()); endD = now; }
   else { const yr = parseInt(selectedHeatmapYear); startD = new Date(yr, 0, 1); startD.setDate(startD.getDate() - startD.getDay()); endD = new Date(yr, 11, 31); }
+  
   const dailyData = {}; logs.forEach(l => { if (l && l.timestamp) { const k = getDateKey(l.timestamp); dailyData[k] = (dailyData[k] || 0) + 1; } });
+  
   ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = isLight ? '#666' : '#999'; ctx.font = '7px sans-serif';
   ['M', 'W', 'F'].forEach((day, i) => { ctx.fillText(day, 0, topP + (i * 2 + 2) * (boxSize + gap) - 2); });
+  
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   let lastM = -1, extraG = 0;
   for (let w = 0; w < weeks; w++) {
@@ -794,6 +828,14 @@ function renderHeatmap(logs, isLight, mainGreen) {
     }
   }
 }
+function formatDuration(ms) {
+  if (!ms || ms < 0) return "0m";
+  const hours = ms / (1000 * 60 * 60);
+  if (hours >= 1) return hours.toFixed(1) + "h";
+  const mins = Math.floor(ms / (1000 * 60));
+  return mins + "m";
+}
+
 async function renderStats() {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems', 'app_settings']), logs = d.leetcode_history || [], curr = d.leetcode_problems || [];
   if (d.app_settings) appSettings = { ...appSettings, ...d.app_settings };
@@ -806,11 +848,28 @@ async function renderStats() {
   const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
   const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
   const todayK = getDateKey(new Date()), now = new Date(), startW = new Date(now.getTime() - 7 * 86400000), startM = new Date(now.getTime() - 30 * 86400000), thisY = now.getFullYear();
-  const solvedToday = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  
+  // Calculate time from currently running problems
+  const activeTimeMs = problems.reduce((s, p) => s + (p.isRunning ? (Date.now() - p.startTime) : p.elapsed), 0);
+
+  const logsToday = logs.filter(l => getDateKey(l.timestamp) === todayK);
+  const solvedToday = logsToday.length;
   const stEl = document.getElementById('stat-today'); if (stEl) stEl.textContent = solvedToday;
-  const swEl = document.getElementById('stat-week'); if (swEl) swEl.textContent = logs.filter(l => l.timestamp > startW.getTime()).length;
-  const smEl = document.getElementById('stat-month'); if (smEl) smEl.textContent = logs.filter(l => l.timestamp > startM.getTime()).length;
+  const ttEl = document.getElementById('time-today'); if (ttEl) ttEl.textContent = formatDuration(logsToday.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
+
+  const logsWeek = logs.filter(l => l.timestamp > startW.getTime());
+  const swEl = document.getElementById('stat-week'); if (swEl) swEl.textContent = logsWeek.length;
+  const twEl = document.getElementById('time-week'); if (twEl) twEl.textContent = formatDuration(logsWeek.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
+
+  const logsMonth = logs.filter(l => l.timestamp > startM.getTime());
+  const smEl = document.getElementById('stat-month'); if (smEl) smEl.textContent = logsMonth.length;
+  const tmEl = document.getElementById('time-month'); if (tmEl) tmEl.textContent = formatDuration(logsMonth.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
+
   const syEl = document.getElementById('stat-year'); if (syEl) syEl.textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisY).length;
+  
+  const totalMsFromLogs = logs.reduce((s, l) => s + (l.elapsedMs || 0), 0);
+  const taEl = document.getElementById('time-all'); if (taEl) taEl.textContent = formatDuration(totalMsFromLogs + activeTimeMs);
+  
   const csEl = document.getElementById('current-streak'); if (csEl) {
     const daysArr = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
     let streak = 0; if (daysArr.length > 0) {

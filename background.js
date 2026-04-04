@@ -1,3 +1,9 @@
+/*
+ * Green Timer & Stopwatch
+ * Copyright (C) 2026 Manoj Kumar
+ * GPLv3 License
+ */
+
 // Helper to get consistent date key (YYYY-MM-DD)
 function getDateKey(val) {
   const d = new Date(val);

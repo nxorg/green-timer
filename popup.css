@@ -489,6 +489,7 @@ body.light-mode .log-entry { background: rgba(0, 0, 0, 0.02); }
 
 /* Full Page Mode */
 body.full-page { width: 100vw; height: 100vh; max-width: 800px; margin: 0 auto; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+body.full-page #expand-page-btn { display: none !important; }
 @media (max-width: 800px) { body.full-page { max-width: 100%; border-left: none; border-right: none; } }
 body.full-page .container { padding: 25px; gap: 20px; }
 body.full-page .display { font-size: 4em; padding: 20px; }

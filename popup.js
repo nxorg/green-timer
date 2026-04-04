@@ -47,18 +47,45 @@ async function initTheme() {
 
 // --- Tab Logic ---
 function initTabs() {
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
-      btn.classList.add('active');
-      const target = document.getElementById(btn.dataset.tab);
-      if (target) target.classList.add('active');
-      if (btn.dataset.tab === 'log') renderHistory();
-      if (btn.dataset.tab === 'stats') setTimeout(renderStats, 50);
-      if (btn.dataset.tab === 'stopwatch') renderProblems();
-      if (btn.dataset.tab === 'settings') renderStatuses();
-    });
+  const tabs = document.querySelectorAll('.tab-btn');
+  const settingsIcon = document.getElementById('settings-icon-btn');
+
+  const switchTab = async (tabName, clickedBtn) => {
+    document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+    if (clickedBtn) clickedBtn.classList.add('active');
+    
+    // Also highlight the header icon if settings is active
+    if (tabName === 'settings' && settingsIcon) settingsIcon.classList.add('active');
+    // Highlight the main tab bar button if settings is active
+    if (tabName === 'settings') {
+      const mainSettingsBtn = document.querySelector('.tabs .tab-btn[data-tab="settings"]');
+      if (mainSettingsBtn) mainSettingsBtn.classList.add('active');
+    }
+
+    const target = document.getElementById(tabName);
+    if (target) target.classList.add('active');
+    if (tabName === 'log') renderHistory();
+    if (tabName === 'stats') setTimeout(renderStats, 50);
+    if (tabName === 'stopwatch') renderProblems();
+    if (tabName === 'settings') renderStatuses();
+    
+    await activeStorage.set({ last_tab: tabName });
+  };
+
+  tabs.forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab || 'settings', btn));
   });
+
+  if (settingsIcon) {
+    settingsIcon.addEventListener('click', () => switchTab('settings', settingsIcon));
+  }
+}
+
+async function restoreLastTab() {
+  const data = await activeStorage.get('last_tab');
+  const lastTab = data.last_tab || 'stopwatch';
+  const targetBtn = document.querySelector(`.tab-btn[data-tab="${lastTab}"]`);
+  if (targetBtn) targetBtn.click();
 }
 
 // --- Helpers ---
@@ -163,11 +190,48 @@ function getDateKey(d) { if(!d) return ""; const o = new Date(d); if(isNaN(o.get
 
 // --- Detection ---
 let detectedDetails = null;
-function updateProblemInput(details) {
+async function updateProblemInput(details) {
   if (!details || !details.name) return false;
   detectedDetails = details;
   const el = document.getElementById('new-problem-name');
   const statusEl = document.getElementById('detection-status');
+  
+  if (appSettings.autoAdd) {
+    const alreadyExists = problems.some(p => (p.number === details.number && p.number !== "") || p.name === details.name);
+    
+    // Check if we can upgrade an existing problem that has no number
+    const existingProblemWithoutNumber = problems.find(p => !p.number && p.name === details.name);
+    
+    if (existingProblemWithoutNumber && details.number) {
+      existingProblemWithoutNumber.number = details.number;
+      if (!existingProblemWithoutNumber.difficulty) existingProblemWithoutNumber.difficulty = details.difficulty;
+      await saveProblems();
+      renderProblems();
+      return true;
+    }
+
+    if (!alreadyExists) {
+      const initialStatus = appSettings.autoStart ? 'Started' : problemStatuses[0];
+      problems.push({ 
+        name: details.name, 
+        number: details.number || "", 
+        url: details.url || "", 
+        difficulty: details.difficulty || "", 
+        elapsed: 0, 
+        isRunning: appSettings.autoStart, 
+        startTime: appSettings.autoStart ? Date.now() : 0, 
+        notes: "", 
+        status: initialStatus, 
+        showNotes: false 
+      });
+      await saveProblems();
+      renderProblems();
+      if (appSettings.autoStart) startUIInterval();
+      if (statusEl) { statusEl.textContent = `✅ Auto-Added: #${details.number || '?'}`; statusEl.style.display = 'block'; }
+      return true;
+    }
+  }
+
   if (el && !el.value) {
     el.value = details.name;
     if (statusEl) { statusEl.textContent = `✅ Detected: #${details.number || '?'}`; statusEl.style.display = 'block'; }
@@ -197,14 +261,24 @@ async function requestLeetCodeTitle() {
 
 // --- Timer/SW ---
 let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [], problemStatuses = [], problemStatusColors = {}, currentHistoryFilterStatus = "";
+let appSettings = {
+  defaultTime: 25,
+  presets: [5, 10, 25, 50],
+  soundEnabled: true,
+  autoAdd: false,
+  autoStart: false,
+  dailyGoal: 3
+};
+
 const DEFAULT_STATUSES = [
-  'Not Started', 'Understood Problem', 'Struggled', 'Hint-Assisted', 
+  'Not Started', 'Started', 'Understood Problem', 'Struggled', 'Hint-Assisted', 
   'Solved (With Help)', 'Solved Independently', 'Optimized Solution', 
   'Edge-Case Issues', 'Needs Revision', 'Mastered'
 ];
 
 const DEFAULT_COLORS = {
   'Not Started': '#E5E7EB',
+  'Started': '#60A5FA',
   'Understood Problem': '#BFDBFE',
   'Struggled': '#FDBA74',
   'Hint-Assisted': '#FEF08A',
@@ -218,6 +292,7 @@ const DEFAULT_COLORS = {
 
 const DEFAULT_COLORS_LIGHT = {
   'Not Started': '#4B5563',
+  'Started': '#2563EB',
   'Understood Problem': '#1D4ED8',
   'Struggled': '#B45309',
   'Hint-Assisted': '#A16207',
@@ -230,20 +305,27 @@ const DEFAULT_COLORS_LIGHT = {
 };
 
 async function initTimers() {
-  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running', 'problem_statuses', 'problem_status_colors']);
+  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running', 'problem_statuses', 'problem_status_colors', 'app_settings']);
   if (data.timer_target && data.timer_target > Date.now()) { timerTargetTime = data.timer_target; startTimerUI(); }
   swElapsedTime = data.sw_elapsed || 0;
   if (data.sw_is_running) { swStartTime = data.sw_start_time || Date.now(); startStandaloneSwUI(); } else { updateSwDisplay(); }
   
   problemStatuses = data.problem_statuses || DEFAULT_STATUSES;
   problemStatusColors = data.problem_status_colors || DEFAULT_COLORS;
+  if (data.app_settings) appSettings = { ...appSettings, ...data.app_settings };
+  
+  applySettingsToUI();
 }
 function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const tl = timerTargetTime - Date.now();
     const el = document.getElementById('timer-display');
-    if (tl <= 0) { clearInterval(timerInterval); if(el) el.textContent = '00:00:00.00'; playBeep(); }
+    if (tl <= 0) { 
+      clearInterval(timerInterval); 
+      if(el) el.textContent = '00:00:00.00'; 
+      if (appSettings.soundEnabled) playBeep(); 
+    }
     else if(el) el.textContent = formatTime(tl, true);
   }, 50);
 }
@@ -256,15 +338,39 @@ function startStandaloneSwUI() {
 
 // --- Problems ---
 async function loadProblems() { 
-  const d = await activeStorage.get(['leetcode_problems', 'problem_statuses', 'problem_status_colors']); 
+  const d = await activeStorage.get(['leetcode_problems', 'problem_statuses', 'problem_status_colors', 'app_settings']); 
   problems = d.leetcode_problems || []; 
   problemStatuses = d.problem_statuses || DEFAULT_STATUSES;
   problemStatusColors = d.problem_status_colors || DEFAULT_COLORS;
+  if (d.app_settings) appSettings = { ...appSettings, ...d.app_settings };
   renderProblems(); 
   startUIInterval(); 
 }
 async function saveProblems() { await activeStorage.set({ leetcode_problems: problems }); }
 async function saveStatuses() { await activeStorage.set({ problem_statuses: problemStatuses, problem_status_colors: problemStatusColors }); }
+async function saveSettings() { await activeStorage.set({ app_settings: appSettings }); }
+
+function applySettingsToUI() {
+  const timerInput = document.getElementById('timer-input');
+  if (timerInput && !timerInterval && timerTargetTime === 0) timerInput.value = appSettings.defaultTime;
+  
+  const presetsGrid = document.querySelector('.presets-grid');
+  if (presetsGrid) {
+    presetsGrid.replaceChildren();
+    appSettings.presets.forEach(p => {
+      const btn = document.createElement('button');
+      btn.className = 'preset-card';
+      btn.dataset.time = p;
+      
+      const unit = document.createElement('span'); unit.className = 'preset-unit'; unit.textContent = 'MIN';
+      const time = document.createElement('span'); time.className = 'preset-time'; time.textContent = p;
+      
+      btn.appendChild(unit); btn.appendChild(time);
+      btn.addEventListener('click', () => { if(timerInput) timerInput.value = p; });
+      presetsGrid.appendChild(btn);
+    });
+  }
+}
 
 function renderStatuses() {
   const list = document.getElementById('status-list');
@@ -342,6 +448,29 @@ function renderStatuses() {
     row.appendChild(delBtn);
     list.appendChild(row);
   });
+  renderSettings();
+}
+
+function renderSettings() {
+  const defaultTimeInp = document.getElementById('setting-default-time');
+  if (defaultTimeInp) defaultTimeInp.value = appSettings.defaultTime;
+  
+  appSettings.presets.forEach((p, idx) => {
+    const inp = document.getElementById(`setting-preset-${idx + 1}`);
+    if (inp) inp.value = p;
+  });
+  
+  const soundInp = document.getElementById('setting-sound-enabled');
+  if (soundInp) soundInp.checked = appSettings.soundEnabled;
+  
+  const autoAddInp = document.getElementById('setting-auto-add');
+  if (autoAddInp) autoAddInp.checked = appSettings.autoAdd;
+  
+  const autoStartInp = document.getElementById('setting-auto-start');
+  if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
+  
+  const dailyGoalInp = document.getElementById('setting-daily-goal');
+  if (dailyGoalInp) dailyGoalInp.value = appSettings.dailyGoal;
 }
 
 function renderProblems() {
@@ -666,7 +795,8 @@ function renderHeatmap(logs, isLight, mainGreen) {
   }
 }
 async function renderStats() {
-  const d = await activeStorage.get(['leetcode_history', 'leetcode_problems']), logs = d.leetcode_history || [], curr = d.leetcode_problems || [];
+  const d = await activeStorage.get(['leetcode_history', 'leetcode_problems', 'app_settings']), logs = d.leetcode_history || [], curr = d.leetcode_problems || [];
+  if (d.app_settings) appSettings = { ...appSettings, ...d.app_settings };
   const isLight = document.body.classList.contains('light-mode'), mainGreen = isLight ? '#008000' : '#00ff00', gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
   renderHeatmap(logs, isLight, mainGreen);
   const diffCounts = { easy: 0, medium: 0, hard: 0 };
@@ -676,7 +806,8 @@ async function renderStats() {
   const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
   const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
   const todayK = getDateKey(new Date()), now = new Date(), startW = new Date(now.getTime() - 7 * 86400000), startM = new Date(now.getTime() - 30 * 86400000), thisY = now.getFullYear();
-  const stEl = document.getElementById('stat-today'); if (stEl) stEl.textContent = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  const solvedToday = logs.filter(l => getDateKey(l.timestamp) === todayK).length;
+  const stEl = document.getElementById('stat-today'); if (stEl) stEl.textContent = solvedToday;
   const swEl = document.getElementById('stat-week'); if (swEl) swEl.textContent = logs.filter(l => l.timestamp > startW.getTime()).length;
   const smEl = document.getElementById('stat-month'); if (smEl) smEl.textContent = logs.filter(l => l.timestamp > startM.getTime()).length;
   const syEl = document.getElementById('stat-year'); if (syEl) syEl.textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisY).length;
@@ -688,6 +819,10 @@ async function renderStats() {
       }
     }
     csEl.textContent = streak;
+    if (appSettings.dailyGoal > 0) {
+      const goalLabel = document.querySelector('#current-streak + .stat-label');
+      if (goalLabel) goalLabel.textContent = `Goal: ${solvedToday}/${appSettings.dailyGoal}`;
+    }
   }
   const l7k = [], l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
   const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
@@ -748,8 +883,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderHistory();
     renderStatuses();
   });
-  const expandBtn = document.getElementById('expand-page-btn'); if(expandBtn) expandBtn.addEventListener('click', () => { api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); });
+  const expandBtn = document.getElementById('expand-page-btn'); 
+  if(expandBtn) expandBtn.addEventListener('click', () => { 
+    api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); 
+    window.close(); // Close the popup after opening the full page
+  });
   const historySearch = document.getElementById('history-search'); if(historySearch) historySearch.addEventListener('input', filterHistory);
+  
+  const goToSettings = document.getElementById('go-to-settings-link');
+  if (goToSettings) {
+    goToSettings.addEventListener('click', (e) => {
+      e.preventDefault();
+      const settingsBtn = document.querySelector('.tab-btn[data-tab="settings"]');
+      if (settingsBtn) settingsBtn.click();
+    });
+  }
   
   const tStart = document.getElementById('timer-start'); if(tStart) tStart.addEventListener('click', async () => { const m = parseInt(document.getElementById('timer-input').value) || 0; if (m > 0) { timerTargetTime = Date.now() + m * 60 * 1000; await activeStorage.set({ timer_target: timerTargetTime }); if(api.alarms) api.alarms.create('timer-finished', { when: timerTargetTime }); startTimerUI(); } });
   const tPause = document.getElementById('timer-pause'); if(tPause) tPause.addEventListener('click', () => { clearInterval(timerInterval); if(api.alarms) api.alarms.clear('timer-finished'); activeStorage.set({ timer_target: 0 }); });
@@ -771,7 +919,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (name) {
       let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "";
       if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", "");
-      problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", status: problemStatuses[0], showNotes: false });
+      const initialStatus = appSettings.autoStart ? 'Started' : problemStatuses[0];
+      problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: appSettings.autoStart, startTime: appSettings.autoStart ? Date.now() : 0, notes: "", status: initialStatus, showNotes: false });
       nEl.value = '';
       detectedDetails = null;
       await saveProblems();
@@ -785,13 +934,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   if(probNameInput) probNameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addProblem(); });
   const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
   
-  const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { 
-    if (window.location.search.indexOf('full=1') === -1 && window.innerWidth < 800) {
-      api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') });
-    } else {
-      const f = document.getElementById('import-file'); if(f) f.click(); 
-    }
-  });
+  const importBtn = document.getElementById('import-btn'); 
+  if(importBtn) {
+    importBtn.addEventListener('click', () => { 
+      if (window.location.search.indexOf('full=1') === -1 && window.innerWidth < 500) {
+        // We are in popup mode, must open full page to prevent auto-close
+        api.tabs.create({ url: api.runtime.getURL('popup.html?full=1&action=restore') });
+      } else {
+        const f = document.getElementById('import-file'); 
+        if(f) f.click(); 
+      }
+    });
+  }
   const importFile = document.getElementById('import-file'); if(importFile) importFile.addEventListener('change', (e) => { 
     const file = e.target.files[0]; if (!file) return; 
     const reader = new FileReader(); 
@@ -801,11 +955,119 @@ document.addEventListener('DOMContentLoaded', async () => {
     }; 
     reader.readAsText(file); 
   });
-  const exportJson = document.getElementById('export-json'); if(exportJson) exportJson.addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
-  const exportCsv = document.getElementById('export-csv'); if(exportCsv) exportCsv.addEventListener('click', async () => { const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return; let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; }); const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click(); });
+  const exportJson = document.getElementById('export-json');
+  if(exportJson) {
+    exportJson.addEventListener('click', async () => { 
+      const originalText = exportJson.textContent;
+      exportJson.textContent = 'EXPORTING...';
+      try {
+        const data = await activeStorage.get(null); 
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); 
+        a.href = url; 
+        a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; 
+        document.body.appendChild(a);
+        a.click();
+        
+        // Delay cleanup to ensure download starts
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          exportJson.textContent = originalText;
+        }, 1000);
+      } catch (e) {
+        exportJson.textContent = 'ERROR!';
+        setTimeout(() => { exportJson.textContent = originalText; }, 2000);
+      }
+    });
+  }
+
+  const exportCsv = document.getElementById('export-csv');
+  if(exportCsv) {
+    exportCsv.addEventListener('click', async () => { 
+      const originalText = exportCsv.textContent;
+      exportCsv.textContent = 'EXPORTING...';
+      try {
+        const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; 
+        if (h.length === 0) {
+          exportCsv.textContent = 'EMPTY!';
+          setTimeout(() => { exportCsv.textContent = originalText; }, 2000);
+          return;
+        }
+        let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; 
+        h.forEach(i => { 
+          const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); 
+          csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; 
+        }); 
+        const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); 
+        a.href = u; a.download = 'leetcode_study_logs.csv'; 
+        document.body.appendChild(a);
+        a.click(); 
+        
+        setTimeout(() => {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(u);
+          exportCsv.textContent = originalText;
+        }, 1000);
+      } catch (e) {
+        exportCsv.textContent = 'ERROR!';
+        setTimeout(() => { exportCsv.textContent = originalText; }, 2000);
+      }
+    });
+  }
   const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
   
+  // Advanced Setting Listeners
+  const defaultTimeInp = document.getElementById('setting-default-time');
+  if (defaultTimeInp) defaultTimeInp.addEventListener('change', (e) => { appSettings.defaultTime = parseInt(e.target.value) || 25; saveSettings(); applySettingsToUI(); });
+  
+  document.querySelectorAll('.preset-setting').forEach((inp, idx) => {
+    inp.addEventListener('change', (e) => { appSettings.presets[idx] = parseInt(e.target.value) || appSettings.presets[idx]; saveSettings(); applySettingsToUI(); });
+  });
+  
+  const soundInp = document.getElementById('setting-sound-enabled');
+  if (soundInp) soundInp.addEventListener('change', (e) => { appSettings.soundEnabled = e.target.checked; saveSettings(); });
+  
+  const autoAddInp = document.getElementById('setting-auto-add');
+  if (autoAddInp) autoAddInp.addEventListener('change', (e) => { appSettings.autoAdd = e.target.checked; saveSettings(); });
+  
+  const autoStartInp = document.getElementById('setting-auto-start');
+  if (autoStartInp) autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
+  
+  const dailyGoalInp = document.getElementById('setting-daily-goal');
+  if (dailyGoalInp) dailyGoalInp.addEventListener('change', (e) => { appSettings.dailyGoal = parseInt(e.target.value) || 3; saveSettings(); if (document.getElementById('stats').classList.contains('active')) renderStats(); });
+
+  const factoryResetBtn = document.getElementById('factory-reset');
+  if (factoryResetBtn) factoryResetBtn.addEventListener('click', async () => {
+    if (confirm('FACTORY RESET? This will clear ALL data, history, and settings forever.')) {
+      await activeStorage.clear();
+      window.location.reload();
+    }
+  });
+
   const addStatusBtn = document.getElementById('add-status');
+  const toggleAddStatusBtn = document.getElementById('toggle-add-status');
+  const addStatusContainer = document.getElementById('add-status-container');
+  const toggleStatusListBtn = document.getElementById('toggle-status-list');
+  const statusList = document.getElementById('status-list');
+
+  if (toggleAddStatusBtn && addStatusContainer) {
+    toggleAddStatusBtn.addEventListener('click', () => {
+      const isHidden = addStatusContainer.style.display === 'none';
+      addStatusContainer.style.display = isHidden ? 'block' : 'none';
+      toggleAddStatusBtn.textContent = isHidden ? '✕ CLOSE' : '+ ADD NEW';
+    });
+  }
+
+  if (toggleStatusListBtn && statusList) {
+    toggleStatusListBtn.addEventListener('click', () => {
+      const isHidden = statusList.style.display === 'none';
+      statusList.style.display = isHidden ? 'flex' : 'none';
+      toggleStatusListBtn.textContent = isHidden ? '✕ HIDE LIST' : 'VIEW LIST';
+    });
+  }
+
   if (addStatusBtn) {
     const input = document.getElementById('new-status-name');
     const colorInput = document.getElementById('new-status-color');
@@ -843,6 +1105,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         renderStatuses();
         renderHistory(); // Update history filter
         renderProblems(); // Update active dropdowns
+        
+        // Hide container and show list after adding
+        if (addStatusContainer) {
+          addStatusContainer.style.display = 'none';
+          if (toggleAddStatusBtn) toggleAddStatusBtn.textContent = '+ ADD NEW';
+        }
+        if (statusList) {
+          statusList.style.display = 'flex';
+          if (toggleStatusListBtn) toggleStatusListBtn.textContent = '✕ HIDE LIST';
+        }
       }
     });
   }
@@ -885,7 +1157,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 3. Final Init
-  await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
+  await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory(); await restoreLastTab();
 
   document.addEventListener('click', () => {
     document.querySelectorAll('.dropdown-options.show').forEach(m => m.classList.remove('show'));
@@ -893,6 +1165,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (window.location.search.indexOf('full=1') !== -1 || window.innerWidth > 500) {
     document.body.classList.add('full-page');
-    setTimeout(() => { const logBtn = document.querySelector('.tab-btn[data-tab="log"]'); if(logBtn) logBtn.click(); }, 50);
+  }
+
+  // Handle auto-restore action from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('action') === 'restore') {
+    setTimeout(() => {
+      const f = document.getElementById('import-file');
+      if(f) f.click();
+    }, 500);
   }
   });

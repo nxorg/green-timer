@@ -12,12 +12,15 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 
 ### ⏱️ Tracking & Detection
 - **Auto-Detection:** Automatically extracts problem number and name from LeetCode.
+- **Smart Automation:** Auto-add detected problems and auto-start timers (optional).
+- **Status Manager:** Fully customizable, color-coded problem statuses (e.g., Started, Solved, Mastered).
 - **Multi-Problem Tracking:** Manage multiple active problems with independent stopwatches.
-- **Standalone Timer & SW:** Compact dedicated timer and stopwatch for general use.
+- **Standalone Timer & SW:** Compact dedicated timer and stopwatch for general use with customizable presets.
 
 ### 📊 Advanced Analytics
 - **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
 - **Activity Heatmap:** Yearly contribution heatmap (GitHub-style) to track consistency.
+- **Daily Goals:** Set and track daily problem-solving targets with live progress indicators.
 - **Deep Insights:** Hourly activity charts, 7-day and 30-day progress reports, and difficulty distribution.
 - **Streaks:** Maintain and visualize your daily coding streaks.
 

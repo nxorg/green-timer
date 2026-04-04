@@ -1,3 +1,9 @@
+/*
+ * Green Timer & Stopwatch
+ * Copyright (C) 2026 Manoj Kumar
+ * GPLv3 License
+ */
+
 // Efficient LeetCode Detection using MutationObserver
 function getLeetCodeDetails() {
   const selectors = [
@@ -33,6 +39,16 @@ function getLeetCodeDetails() {
     const parts = fullTitle.split('. ');
     number = parts[0];
     name = parts.slice(1).join('. ');
+  }
+
+  // Fallback: If number is still empty, check the document title
+  if (!number) {
+    const docTitle = document.title;
+    const docMatch = docTitle.match(/^#?(\d+)[\.\s]+(.*)/);
+    if (docMatch) {
+      number = docMatch[1];
+      // We keep the name from the page content as it's usually cleaner
+    }
   }
 
   // Difficulty detection

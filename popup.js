@@ -56,11 +56,95 @@ function initTabs() {
       if (btn.dataset.tab === 'log') renderHistory();
       if (btn.dataset.tab === 'stats') setTimeout(renderStats, 50);
       if (btn.dataset.tab === 'stopwatch') renderProblems();
+      if (btn.dataset.tab === 'settings') renderStatuses();
     });
   });
 }
 
 // --- Helpers ---
+function getStatusColor(status) {
+  const isLight = document.body.classList.contains('light-mode');
+  const customColor = problemStatusColors[status];
+  if (customColor) return customColor;
+  
+  if (isLight) return DEFAULT_COLORS_LIGHT[status] || 'var(--green)';
+  return DEFAULT_COLORS[status] || 'var(--green)';
+}
+
+function createCustomDropdown(options, selectedValue, onSelect) {
+  const container = document.createElement('div');
+  container.className = 'custom-dropdown';
+  
+  const selected = document.createElement('div');
+  selected.className = 'dropdown-selected';
+  
+  const updateSelectedStyle = (val) => {
+    const color = getStatusColor(val);
+    selected.replaceChildren();
+    
+    const bullet = document.createElement('span');
+    bullet.style.display = 'inline-block';
+    bullet.style.width = '8px';
+    bullet.style.height = '8px';
+    bullet.style.borderRadius = '50%';
+    bullet.style.marginRight = '6px';
+    bullet.style.backgroundColor = color.startsWith('var(') ? 'var(--green)' : color;
+    
+    const text = document.createTextNode(val || options[0]);
+    
+    selected.appendChild(bullet);
+    selected.appendChild(text);
+    
+    if (color.startsWith('var(')) {
+      selected.style.borderColor = '';
+    } else {
+      selected.style.borderColor = color;
+    }
+    selected.style.color = 'var(--text-color)';
+  };
+  updateSelectedStyle(selectedValue || options[0]);
+  
+  const menu = document.createElement('div');
+  menu.className = 'dropdown-options';
+  
+  options.forEach(opt => {
+    const item = document.createElement('div');
+    item.className = 'dropdown-option' + (opt === selectedValue ? ' active' : '');
+    
+    const optColor = getStatusColor(opt);
+    const bullet = document.createElement('span');
+    bullet.style.display = 'inline-block';
+    bullet.style.width = '6px';
+    bullet.style.height = '6px';
+    bullet.style.borderRadius = '50%';
+    bullet.style.marginRight = '8px';
+    bullet.style.backgroundColor = optColor.startsWith('var(') ? 'var(--green)' : optColor;
+    
+    item.appendChild(bullet);
+    item.appendChild(document.createTextNode(opt));
+    item.style.color = 'var(--text-color)';
+
+    item.addEventListener('click', (e) => {
+      e.stopPropagation();
+      updateSelectedStyle(opt);
+      menu.classList.remove('show');
+      onSelect(opt);
+    });
+    menu.appendChild(item);
+  });
+  
+  selected.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isShowing = menu.classList.contains('show');
+    document.querySelectorAll('.dropdown-options.show').forEach(m => m.classList.remove('show'));
+    if (!isShowing) menu.classList.add('show');
+  });
+  
+  container.appendChild(selected);
+  container.appendChild(menu);
+  return container;
+}
+
 function formatTime(ms, isSW = false) {
   if (!ms || isNaN(ms)) ms = 0;
   let s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
@@ -112,12 +196,47 @@ async function requestLeetCodeTitle() {
 }
 
 // --- Timer/SW ---
-let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [];
+let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [], problemStatuses = [], problemStatusColors = {}, currentHistoryFilterStatus = "";
+const DEFAULT_STATUSES = [
+  'Not Started', 'Understood Problem', 'Struggled', 'Hint-Assisted', 
+  'Solved (With Help)', 'Solved Independently', 'Optimized Solution', 
+  'Edge-Case Issues', 'Needs Revision', 'Mastered'
+];
+
+const DEFAULT_COLORS = {
+  'Not Started': '#E5E7EB',
+  'Understood Problem': '#BFDBFE',
+  'Struggled': '#FDBA74',
+  'Hint-Assisted': '#FEF08A',
+  'Solved (With Help)': '#D8B4FE',
+  'Solved Independently': '#86EFAC',
+  'Optimized Solution': '#22C55E',
+  'Edge-Case Issues': '#FCA5A5',
+  'Needs Revision': '#DC2626',
+  'Mastered': '#14B8A6'
+};
+
+const DEFAULT_COLORS_LIGHT = {
+  'Not Started': '#4B5563',
+  'Understood Problem': '#1D4ED8',
+  'Struggled': '#B45309',
+  'Hint-Assisted': '#A16207',
+  'Solved (With Help)': '#6D28D9',
+  'Solved Independently': '#047857',
+  'Optimized Solution': '#166534',
+  'Edge-Case Issues': '#B91C1C',
+  'Needs Revision': '#7F1D1D',
+  'Mastered': '#0F766E'
+};
+
 async function initTimers() {
-  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running']);
+  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running', 'problem_statuses', 'problem_status_colors']);
   if (data.timer_target && data.timer_target > Date.now()) { timerTargetTime = data.timer_target; startTimerUI(); }
   swElapsedTime = data.sw_elapsed || 0;
   if (data.sw_is_running) { swStartTime = data.sw_start_time || Date.now(); startStandaloneSwUI(); } else { updateSwDisplay(); }
+  
+  problemStatuses = data.problem_statuses || DEFAULT_STATUSES;
+  problemStatusColors = data.problem_status_colors || DEFAULT_COLORS;
 }
 function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
@@ -136,8 +255,95 @@ function startStandaloneSwUI() {
 }
 
 // --- Problems ---
-async function loadProblems() { const d = await activeStorage.get('leetcode_problems'); problems = d.leetcode_problems || []; renderProblems(); startUIInterval(); }
+async function loadProblems() { 
+  const d = await activeStorage.get(['leetcode_problems', 'problem_statuses', 'problem_status_colors']); 
+  problems = d.leetcode_problems || []; 
+  problemStatuses = d.problem_statuses || DEFAULT_STATUSES;
+  problemStatusColors = d.problem_status_colors || DEFAULT_COLORS;
+  renderProblems(); 
+  startUIInterval(); 
+}
 async function saveProblems() { await activeStorage.set({ leetcode_problems: problems }); }
+async function saveStatuses() { await activeStorage.set({ problem_statuses: problemStatuses, problem_status_colors: problemStatusColors }); }
+
+function renderStatuses() {
+  const list = document.getElementById('status-list');
+  if (!list) return;
+  list.replaceChildren();
+  problemStatuses.forEach((status, idx) => {
+    const row = document.createElement('div');
+    row.className = 'input-row';
+    row.style.marginBottom = '5px';
+    
+    const statusColor = getStatusColor(status);
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = status;
+    input.style.fontSize = '0.8em';
+    input.style.flex = '1';
+    input.style.color = 'var(--text-color)';
+    input.style.borderColor = statusColor.startsWith('var(') ? 'var(--green)' : statusColor;
+    
+    const colorInput = document.createElement('input');
+    colorInput.type = 'color';
+    colorInput.value = statusColor;
+    colorInput.style.width = '40px';
+    colorInput.style.padding = '2px';
+    colorInput.style.height = '32px';
+    colorInput.style.flexShrink = '0';
+    colorInput.style.cursor = 'pointer';
+    colorInput.style.border = '1px solid ' + statusColor;
+    
+    input.addEventListener('change', (e) => {
+      const oldName = problemStatuses[idx];
+      const newName = e.target.value.trim();
+      if (newName && oldName !== newName) {
+        problemStatuses[idx] = newName;
+        problemStatusColors[newName] = problemStatusColors[oldName];
+        delete problemStatusColors[oldName];
+        saveStatuses();
+        renderHistory();
+        renderProblems();
+      }
+    });
+
+    colorInput.addEventListener('change', (e) => {
+      const newColor = e.target.value;
+      problemStatusColors[status] = newColor;
+      input.style.color = newColor;
+      input.style.borderColor = newColor;
+      colorInput.style.border = '1px solid ' + newColor;
+      saveStatuses();
+      renderHistory();
+      renderProblems();
+    });
+    
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-small';
+    delBtn.textContent = 'DELETE';
+    delBtn.style.color = '#ff0000';
+    delBtn.style.borderColor = '#ff0000';
+    delBtn.addEventListener('click', () => {
+      delete problemStatusColors[status];
+      problemStatuses.splice(idx, 1);
+      saveStatuses();
+      renderStatuses();
+      renderHistory();
+      renderProblems();
+    });
+    
+    if (statusColor.startsWith('var(')) {
+      input.style.borderColor = 'var(--green)';
+      colorInput.style.border = '1px solid var(--green)';
+    }
+    
+    row.appendChild(input);
+    row.appendChild(colorInput);
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
 function renderProblems() {
   const c = document.getElementById('problems-container'); if (!c) return; c.replaceChildren();
   if (problems.length === 0) {
@@ -153,13 +359,39 @@ function renderProblems() {
   problems.forEach((p, i) => {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed, dn = (p.number ? p.number + ". " : "") + p.name;
+    
+    const title = document.createElement('div'); title.className = 'problem-list-title';
+    title.style.marginBottom = '5px';
+    title.title = dn;
+    if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; a.title = dn; title.appendChild(a); } else title.textContent = dn;
+    r.appendChild(title);
+
     const header = document.createElement('div'); header.className = 'problem-header';
-    const span = document.createElement('span'); span.style.flexGrow = '1'; span.style.marginRight = '8px'; span.style.overflow = 'hidden'; span.style.textOverflow = 'ellipsis'; span.style.whiteSpace = 'nowrap';
-    if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; span.appendChild(a); } else span.textContent = dn;
-    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.marginRight = '5px'; notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
+    header.style.borderBottom = 'none';
+    header.style.paddingBottom = '0';
+    header.style.marginBottom = '5px';
+    
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.gap = '4px';
+    btnRow.style.alignItems = 'center';
+    btnRow.style.marginLeft = 'auto'; /* Push all buttons to the far right */
+    
+    const statusDropdown = createCustomDropdown(problemStatuses, p.status || problemStatuses[0], (val) => {
+      problems[i].status = val;
+      saveProblems();
+    });
+
+    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.marginRight = '0'; notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
     if (p.notes && !p.showNotes) notesBtn.style.boxShadow = '0 0 10px var(--green)';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
-    header.appendChild(span); header.appendChild(notesBtn); header.appendChild(delBtn);
+    
+    btnRow.appendChild(statusDropdown);
+    btnRow.appendChild(notesBtn);
+    btnRow.appendChild(delBtn);
+    header.appendChild(btnRow);
+    r.appendChild(header);
+
     const controls = document.createElement('div'); controls.className = 'problem-controls';
     const time = document.createElement('div'); time.className = 'problem-time'; time.id = `time-${i}`; time.textContent = formatTime(cur, true);
     const toggleBtn = document.createElement('button'); toggleBtn.className = 'btn-small'; toggleBtn.textContent = p.isRunning ? 'PAUSE' : 'START'; toggleBtn.dataset.index = i; toggleBtn.dataset.action = 'toggle';
@@ -184,7 +416,17 @@ function startUIInterval() {
 // --- History ---
 async function logToHistory(prob, elapsed) {
   const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || [];
-  h.unshift({ name: prob.name, number: prob.number, url: prob.url, difficulty: prob.difficulty || "", timeStr: formatTime(elapsed, true), elapsedMs: elapsed, timestamp: Date.now(), notes: prob.notes || "" });
+  h.unshift({ 
+    name: prob.name, 
+    number: prob.number, 
+    url: prob.url, 
+    difficulty: prob.difficulty || "", 
+    status: prob.status || "Completed",
+    timeStr: formatTime(elapsed, true), 
+    elapsedMs: elapsed, 
+    timestamp: Date.now(), 
+    notes: prob.notes || "" 
+  });
   await activeStorage.set({ leetcode_history: h });
 }
 function formatMarkdown(text) {
@@ -196,12 +438,40 @@ function formatMarkdown(text) {
 async function saveHistory() { await activeStorage.set({ leetcode_history: currentHistory }); }
 
 let currentHistory = [];
-async function renderHistory() { const l = document.getElementById('log-list'), d = await activeStorage.get('leetcode_history'); currentHistory = d.leetcode_history || []; if (l) filterHistory(); }
+async function renderHistory() { 
+  const l = document.getElementById('log-list'), d = await activeStorage.get(['leetcode_history', 'problem_statuses', 'problem_status_colors']); 
+  currentHistory = d.leetcode_history || []; 
+  problemStatuses = d.problem_statuses || DEFAULT_STATUSES;
+  problemStatusColors = d.problem_status_colors || DEFAULT_COLORS;
+
+  const filterContainer = document.getElementById('history-filter-container');
+  if (filterContainer) {
+    let filterDropdown = document.getElementById('history-status-filter-custom');
+    if (filterDropdown) filterDropdown.remove();
+
+    filterDropdown = createCustomDropdown(['All Statuses', ...problemStatuses], currentHistoryFilterStatus || 'All Statuses', (val) => {
+      currentHistoryFilterStatus = val === 'All Statuses' ? '' : val;
+      filterHistory();
+    });
+    filterDropdown.id = 'history-status-filter-custom';
+    filterDropdown.style.width = '100%';
+    filterContainer.appendChild(filterDropdown);
+  }
+
+  if (l) filterHistory(); 
+}
+
 function filterHistory() {
   const l = document.getElementById('log-list'); if(!l) return;
   const sEl = document.getElementById('history-search');
   const query = sEl ? sEl.value.toLowerCase() : "";
-  const filtered = currentHistory.filter(i => i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)));
+  const filterStatus = currentHistoryFilterStatus;
+
+  const filtered = currentHistory.filter(i => {
+    const matchesQuery = i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)) || (i.status && i.status.toLowerCase().includes(query));
+    const matchesStatus = !filterStatus || i.status === filterStatus;
+    return matchesQuery && matchesStatus;
+  });
   l.replaceChildren();
   if (filtered.length === 0) { const msg = document.createElement('div'); msg.style.opacity = '0.5'; msg.style.padding = '10px'; msg.textContent = 'No results found.'; l.appendChild(msg); return; }
   const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
@@ -209,11 +479,13 @@ function filterHistory() {
   summary.style.display = 'flex'; summary.style.justifyContent = 'space-between'; summary.style.fontSize = '0.8em';
   
   const totalCountSpan = document.createElement('span');
+  totalCountSpan.className = 'log-summary-text';
   const countBold = document.createElement('b'); countBold.textContent = 'TOTAL: ';
   totalCountSpan.appendChild(countBold);
   totalCountSpan.appendChild(document.createTextNode(`${filtered.length} problems`));
   
   const totalTimeSpan = document.createElement('span');
+  totalTimeSpan.className = 'log-summary-text';
   const timeBold = document.createElement('b'); timeBold.textContent = 'TIME: ';
   totalTimeSpan.appendChild(timeBold);
   totalTimeSpan.appendChild(document.createTextNode(formatTime(totalMs)));
@@ -222,15 +494,26 @@ function filterHistory() {
   summary.appendChild(totalTimeSpan);
   l.appendChild(summary);
   filtered.forEach((i, idx) => {
-    let dn = (i.number ? i.number + ". " : "") + i.name; if (dn.length > 50) dn = dn.substring(0, 47) + "...";
+    const fullDn = (i.number ? i.number + ". " : "") + i.name;
+    let dn = fullDn; if (dn.length > 50) dn = dn.substring(0, 47) + "...";
     const dd = (val) => { const date = new Date(val); if (isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
     const realIdx = currentHistory.indexOf(i), entry = document.createElement('div'); entry.className = 'log-entry';
-    const topRow = document.createElement('div'); topRow.className = 'log-entry-row';
-    const left = document.createElement('div'); left.style.flex = "1";
+    
     const title = document.createElement('div'); title.className = 'log-entry-title';
-    if (i.url) { const a = document.createElement('a'); a.href = i.url; a.target = '_blank'; a.textContent = dn; title.appendChild(a); } else title.textContent = dn;
-    left.appendChild(title);
+    title.style.marginBottom = '5px';
+    title.title = fullDn;
+    if (i.url) { const a = document.createElement('a'); a.href = i.url; a.target = '_blank'; a.textContent = dn; a.title = fullDn; title.appendChild(a); } else title.textContent = dn;
+    entry.appendChild(title);
+
+    const bottomRow = document.createElement('div');
+    bottomRow.style.display = 'flex';
+    bottomRow.style.justifyContent = 'space-between';
+    bottomRow.style.alignItems = 'center';
+    bottomRow.style.gap = '10px';
+    bottomRow.style.flexWrap = 'wrap';
+
     const meta = document.createElement('div'); meta.className = 'log-entry-meta';
+    meta.style.marginTop = '0';
     if (i.difficulty) {
       const badge = document.createElement('span'); badge.className = 'difficulty-badge'; badge.style.marginRight = '8px'; badge.textContent = i.difficulty;
       const d = i.difficulty.toLowerCase();
@@ -239,17 +522,39 @@ function filterHistory() {
       else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
       meta.appendChild(badge);
     }
+
     const timeSpan = document.createElement('span'); timeSpan.style.fontWeight = "bold"; timeSpan.style.color = "var(--text-color)"; timeSpan.textContent = i.timeStr; meta.appendChild(timeSpan);
     const dateSpan = document.createElement('span'); dateSpan.style.marginLeft = "8px"; dateSpan.textContent = dd(i.timestamp); meta.appendChild(dateSpan);
-    left.appendChild(meta);
-    const btnRow = document.createElement('div'); btnRow.style.display = 'flex'; btnRow.style.gap = '5px';
+    
+    const btnRow = document.createElement('div'); 
+    btnRow.style.display = 'flex'; 
+    btnRow.style.gap = '4px'; 
+    btnRow.style.alignItems = 'center';
+    btnRow.style.flexShrink = '0';
+    btnRow.style.marginLeft = 'auto'; /* Push all buttons to the far right */
+    
+    const statusDropdown = createCustomDropdown(problemStatuses, i.status || problemStatuses[0], async (val) => {
+      const entryToUpdate = currentHistory.find(item => item.timestamp === i.timestamp);
+      if (entryToUpdate) {
+        entryToUpdate.status = val;
+        await saveHistory();
+        const fEl = document.getElementById('history-status-filter');
+        if (fEl && fEl.value) filterHistory(); 
+      }
+    });
+    
     const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
     notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
-    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.style.color = '#ff0000'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
-    btnRow.appendChild(notesBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
-    topRow.appendChild(left); topRow.appendChild(btnRow); entry.appendChild(topRow);
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
     
+    btnRow.appendChild(statusDropdown);
+    btnRow.appendChild(notesBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
+    
+    bottomRow.appendChild(meta);
+    bottomRow.appendChild(btnRow);
+    entry.appendChild(bottomRow);
+
     const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${realIdx}`; notesSection.style.display = 'none';
     const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here...'; notesArea.value = i.notes || '';
     const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
@@ -434,7 +739,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 2. Setup Listeners
   initTabs();
-  const themeBtn = document.getElementById('theme-toggle'); if(themeBtn) themeBtn.addEventListener('click', async () => { document.body.classList.toggle('light-mode'); await activeStorage.set({ theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' }); renderStats(); });
+  const themeBtn = document.getElementById('theme-toggle'); 
+  if(themeBtn) themeBtn.addEventListener('click', async () => { 
+    document.body.classList.toggle('light-mode'); 
+    await activeStorage.set({ theme: document.body.classList.contains('light-mode') ? 'light' : 'dark' }); 
+    renderStats(); 
+    renderProblems();
+    renderHistory();
+    renderStatuses();
+  });
   const expandBtn = document.getElementById('expand-page-btn'); if(expandBtn) expandBtn.addEventListener('click', () => { api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); });
   const historySearch = document.getElementById('history-search'); if(historySearch) historySearch.addEventListener('input', filterHistory);
   
@@ -450,7 +763,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tInc = document.getElementById('timer-inc'); if(tInc) tInc.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) inp.value = parseInt(inp.value || 0) + 1; });
   const tDec = document.getElementById('timer-dec'); if(tDec) tDec.addEventListener('click', () => { const inp = document.getElementById('timer-input'); if(inp) { const v = parseInt(inp.value || 0); if (v > 1) inp.value = v - 1; } });
   
-  const addProbBtn = document.getElementById('add-problem'); if(addProbBtn) addProbBtn.addEventListener('click', async () => { const nEl = document.getElementById('new-problem-name'); if(!nEl) return; const name = nEl.value.trim(); if (name) { let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : ""; if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", ""); problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", showNotes: false }); nEl.value = ''; detectedDetails = null; await saveProblems(); renderProblems(); startUIInterval(); } });
+  const addProbBtn = document.getElementById('add-problem');
+  const addProblem = async () => {
+    const nEl = document.getElementById('new-problem-name');
+    if(!nEl) return;
+    const name = nEl.value.trim();
+    if (name) {
+      let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "";
+      if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", "");
+      problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: false, startTime: 0, notes: "", status: problemStatuses[0], showNotes: false });
+      nEl.value = '';
+      detectedDetails = null;
+      await saveProblems();
+      renderProblems();
+      startUIInterval();
+    }
+  };
+  if(addProbBtn) addProbBtn.addEventListener('click', addProblem);
+  
+  const probNameInput = document.getElementById('new-problem-name');
+  if(probNameInput) probNameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addProblem(); });
   const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
   
   const importBtn = document.getElementById('import-btn'); if(importBtn) importBtn.addEventListener('click', () => { 
@@ -472,6 +804,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   const exportJson = document.getElementById('export-json'); if(exportJson) exportJson.addEventListener('click', async () => { const data = await activeStorage.get(null); const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a'); a.href = url; a.download = `green_timer_backup_${new Date().toISOString().split('T')[0]}.json`; a.click(); });
   const exportCsv = document.getElementById('export-csv'); if(exportCsv) exportCsv.addEventListener('click', async () => { const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; if (h.length === 0) return; let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; h.forEach(i => { const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; }); const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); a.href = u; a.download = 'leetcode_study_logs.csv'; a.click(); });
   const hYearSel = document.getElementById('heatmap-year-selector'); if(hYearSel) hYearSel.addEventListener('change', (e) => { selectedHeatmapYear = e.target.value; renderStats(); });
+  
+  const addStatusBtn = document.getElementById('add-status');
+  if (addStatusBtn) {
+    const input = document.getElementById('new-status-name');
+    const colorInput = document.getElementById('new-status-color');
+    
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addStatusBtn.click();
+        }
+      });
+    }
+
+    if (colorInput) {
+      colorInput.addEventListener('input', (e) => {
+        input.style.color = e.target.value;
+        input.style.borderColor = e.target.value;
+        colorInput.style.border = '1px solid ' + e.target.value;
+      });
+    }
+
+    addStatusBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const name = input.value.trim();
+      const color = colorInput.value;
+      if (name) {
+        problemStatuses.push(name);
+        problemStatusColors[name] = color;
+        input.value = '';
+        input.style.color = ''; // Reset to default
+        input.style.borderColor = '';
+        colorInput.value = '#00ff00';
+        colorInput.style.border = '';
+        saveStatuses();
+        renderStatuses();
+        renderHistory(); // Update history filter
+        renderProblems(); // Update active dropdowns
+      }
+    });
+  }
+
   const clearLog = document.getElementById('clear-log'); if(clearLog) clearLog.addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
   const logList = document.getElementById('log-list'); if(logList) logList.addEventListener('click', async (e) => {
@@ -511,6 +886,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 3. Final Init
   await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory();
+
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-options.show').forEach(m => m.classList.remove('show'));
+  });
 
   if (window.location.search.indexOf('full=1') !== -1 || window.innerWidth > 500) {
     document.body.classList.add('full-page');

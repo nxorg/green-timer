@@ -30,6 +30,12 @@
         </div>
       </div>
       <div class="header-right-actions" style="display: flex; align-items: center; gap: 4px;">
+        <button id="settings-icon-btn" class="tab-btn" data-tab="settings" title="Settings" style="background: none; border: none; color: var(--green); padding: 0; cursor: pointer; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; opacity: 0.8;">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
         <button id="theme-toggle" title="Toggle Light/Dark Mode" style="margin: 0;">
           <svg id="sun-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
             <circle cx="12" cy="12" r="5"></circle>
@@ -129,8 +135,11 @@
 
     <!-- 3. History Section -->
     <div id="log" class="tab-content">
-      <div class="input-row" style="flex-shrink: 0;">
-        <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 6px;">
+      <div id="history-filter-container" style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
+        <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 8px; width: 100%;">
+        <select id="history-status-filter" style="display: none;">
+          <option value="">All Statuses</option>
+        </select>
       </div>
       <div id="log-list" style="flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;"></div>
       
@@ -159,33 +168,33 @@
     <div id="timer" class="tab-content">
       <div class="timer-card">
         <div class="display" id="timer-display">00:00:00.00</div>
-        <div class="input-group">
-          <div class="custom-number-input">
+        <div class="input-row" style="margin-top: 20px; justify-content: center; gap: 10px;">
+          <div class="custom-number-input" style="margin: 0;">
             <button id="timer-dec" class="btn-step">-</button>
             <input type="number" id="timer-input" value="25" min="1" readonly>
             <button id="timer-inc" class="btn-step">+</button>
           </div>
-          <button id="timer-start" class="btn-main">START</button>
+          <button id="timer-start" class="btn-main" style="height: 50px; padding: 0 25px !important; flex: none;">START</button>
         </div>
       </div>
 
       <div class="preset-label">QUICK PRESETS</div>
       <div class="presets-grid">
         <button class="preset-card" data-time="5">
-          <div class="preset-time">5</div>
-          <div class="preset-unit">MIN</div>
+          <span class="preset-unit">MIN</span>
+          <span class="preset-time">5</span>
         </button>
         <button class="preset-card" data-time="10">
-          <div class="preset-time">10</div>
-          <div class="preset-unit">MIN</div>
+          <span class="preset-unit">MIN</span>
+          <span class="preset-time">10</span>
         </button>
         <button class="preset-card" data-time="25">
-          <div class="preset-time">25</div>
-          <div class="preset-unit">MIN</div>
+          <span class="preset-unit">MIN</span>
+          <span class="preset-time">25</span>
         </button>
         <button class="preset-card" data-time="50">
-          <div class="preset-time">50</div>
-          <div class="preset-unit">MIN</div>
+          <span class="preset-unit">MIN</span>
+          <span class="preset-time">50</span>
         </button>
       </div>
 
@@ -195,7 +204,23 @@
       </div>
     </div>
 
-    <!-- 6. About Section -->
+    <!-- 6. Settings Section -->
+    <div id="settings" class="tab-content">
+      <div class="about-card">
+        <div class="chart-label">Status Manager</div>
+        <p style="font-size: 0.7em; opacity: 0.7; margin: 8px 0;">Customize the status options available for your problems.</p>
+        <div class="input-row">
+          <input type="text" id="new-status-name" placeholder="New Status Name" style="flex: 1;">
+          <input type="color" id="new-status-color" value="#00ff00" title="Status Color" style="width: 40px; padding: 2px; height: 32px; flex-shrink: 0; cursor: pointer; border: 1px solid var(--green);">
+          <button id="add-status" class="btn-small">ADD</button>
+        </div>
+        <div id="status-list" style="margin-top: 15px; display: flex; flex-direction: column; gap: 5px;">
+          <!-- Statuses will be rendered here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. About Section -->
     <div id="about" class="tab-content">
       <div class="about-card">
         <div class="about-header" style="justify-content: flex-start; gap: 10px;">
@@ -248,10 +273,10 @@
         </div>
       </div>
 
-      <div class="promise-box" style="background: rgba(255, 255, 255, 0.05); border-left-color: var(--text-color);">
-        <div style="font-weight: bold; font-size: 0.8em; color: var(--text-color); margin-bottom: 5px;">📜 LICENSE</div>
+      <div class="promise-box" style="background: rgba(255, 255, 255, 0.05); border-left-color: var(--green);">
+        <div style="font-weight: bold; font-size: 0.8em; color: var(--green); margin-bottom: 5px;">📜 LICENSE GPL-3</div>
         <div style="font-size: 0.75em; line-height: 1.3; opacity: 0.9;">
-          This software is licensed under the <strong>GNU General Public License v3.0 (GPL-3.0)</strong>. You are free to use, modify, and distribute this software under the terms of the license.
+          This software is licensed under the GNU General Public License v3.0 (GPL-3.0). You are free to use, modify, and distribute this software under the terms of the license.
         </div>
       </div>
 
@@ -273,16 +298,28 @@
       </div>
 
       <div style="text-align: center; font-size: 0.75em; margin-top: 20px; display: flex; flex-direction: column; gap: 10px; opacity: 0.7;">
-        <div style="font-style: italic; color: var(--green); margin-bottom: -5px;">Engineering Innovation for Everyone</div>
+        <div style="font-style: italic; color: #00ff00; margin-bottom: -5px;">Engineering Innovation for Everyone</div>
         <div style="display: flex; justify-content: center; gap: 15px;">
-          <a href="https://nxorg.xchip.in/" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold;">nxorg.xchip.in/</a>
-          <a href="https://www.xchip.in" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold;">www.xchip.in</a>
+          <a href="https://nxorg.xchip.in/" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            nxorg.xchip.in/
+          </a>
+          <a href="https://www.xchip.in" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            www.xchip.in
+          </a>
         </div>
-        <div style="text-align: center; font-size: 0.9em; color: var(--text-color);">
-          Made with <span style="color: #00ff00;">💚</span> by <a href="https://manoj.xchip.in" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold;">Manoj Kumar</a> &copy; 2026
-        </div>
-        <div style="text-align: center; font-size: 0.8em; color: var(--text-color); margin-top: -5px;">
-          Released under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" style="color: var(--green); text-decoration: none; font-weight: bold;">GPL-3.0 License</a>
+        <div style="text-align: center; font-size: 0.85em; color: var(--text-color); margin-top: 5px; display: flex; justify-content: center; align-items: center; gap: 4px; flex-wrap: wrap;">
+          <span>Made with <span style="color: #00ff00;">💚</span> by</span>
+          <a href="https://manoj.xchip.in" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            Manoj Kumar
+          </a>
+          <span>&copy; 2026</span>
+          <a href="https://www.gnu.org/licenses/gpl-3.0.html" target="_blank" style="color: var(--text-color); text-decoration: none; border-bottom: 1px solid rgba(0, 255, 0, 0.2); font-weight: bold; display: flex; align-items: center;">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+            GPL-3
+          </a>
         </div>
       </div>
     </div>

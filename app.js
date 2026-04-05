@@ -621,6 +621,9 @@ async function initTimers() {
 
   if (data.app_settings) appSettings = { ...appSettings, ...data.app_settings };
 
+  if (appSettings.zenMode) document.body.classList.add('zen-active');
+  else document.body.classList.remove('zen-active');
+
   applySettingsToUI();
 }function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);

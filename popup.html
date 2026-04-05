@@ -152,10 +152,24 @@
 
     <!-- 3. History Section -->
     <div id="log" class="tab-content">
-      <div id="history-filter-container" style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
-        <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 8px; width: 100%;">
-        <div id="history-tag-filter-container"></div>
-        <div id="active-tag-filters" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;"></div>
+      <div id="history-filter-area" style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; padding-bottom: 5px; border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; gap: 5px; align-items: center;">
+          <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 8px; flex: 1;">
+          <button id="toggle-history-filters" class="btn-small" style="padding: 8px; min-width: 80px;">FILTERS</button>
+        </div>
+
+        <div id="history-filters-expanded" style="display: none; flex-direction: column; gap: 8px; padding: 10px; background: rgba(0,0,0,0.1); border: 1px dashed var(--border-color);">
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 0.6em; opacity: 0.6; font-weight: bold;">BY STATUS</div>
+            <div id="history-filter-container"></div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 0.6em; opacity: 0.6; font-weight: bold;">BY TAGS</div>
+            <div id="history-tag-filter-container"></div>
+            <div id="active-tag-filters" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px;"></div>
+          </div>
+        </div>
+
         <select id="history-status-filter" style="display: none;">
           <option value="">All Statuses</option>
         </select>

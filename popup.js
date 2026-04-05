@@ -1649,8 +1649,19 @@ async function renderStats(includeCharts = true) {
           // 2. Switch to Log tab
           const logBtn = document.querySelector('.tab-btn[data-tab="log"]');
           if (logBtn) logBtn.click();
+
+          // 3. Auto-expand filters
+          const toggleHistFilters = document.getElementById('toggle-history-filters');
+          const histFiltersExpanded = document.getElementById('history-filters-expanded');
+          if (histFiltersExpanded && histFiltersExpanded.style.display === 'none') {
+            histFiltersExpanded.style.display = 'flex';
+            if (toggleHistFilters) {
+              toggleHistFilters.textContent = '✕ CLOSE';
+              toggleHistFilters.style.borderColor = 'var(--green)';
+            }
+          }
           
-          // 3. Clear search input to avoid conflicts
+          // 4. Clear search input to avoid conflicts
           const searchInp = document.getElementById('history-search');
           if (searchInp) searchInp.value = '';
           
@@ -1715,6 +1726,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.close(); // Close the popup after opening the full page
   });
   const historySearch = document.getElementById('history-search'); if(historySearch) historySearch.addEventListener('input', filterHistory);
+  
+  const toggleHistFilters = document.getElementById('toggle-history-filters');
+  const histFiltersExpanded = document.getElementById('history-filters-expanded');
+  if (toggleHistFilters && histFiltersExpanded) {
+    toggleHistFilters.addEventListener('click', () => {
+      const isHidden = histFiltersExpanded.style.display === 'none';
+      histFiltersExpanded.style.display = isHidden ? 'flex' : 'none';
+      toggleHistFilters.textContent = isHidden ? '✕ CLOSE' : 'FILTERS';
+      toggleHistFilters.style.borderColor = isHidden ? 'var(--green)' : '';
+    });
+  }
   
   const goToSettings = document.getElementById('go-to-settings-link');
   if (goToSettings) {

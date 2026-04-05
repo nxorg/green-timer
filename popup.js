@@ -5,7 +5,7 @@
  */
 
 const api = (typeof browser !== 'undefined') ? browser : chrome;
-const ANALYTICS_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M3 3v18h18"></path><path d="M18 9l-5 5-4-4-3 3"></path></svg>`;
+const ANALYTICS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M3 3v18h18"></path><path d="M18 9l-5 5-4-4-3 3"></path></svg>`;
 const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
 const activeStorage = {

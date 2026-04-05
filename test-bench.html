@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Green Timer - Performance Stress Test</title>
+    <style>
+        body { font-family: monospace; background: #0a0a0a; color: #00ff00; padding: 20px; }
+        .controls { background: #111; padding: 20px; border: 1px solid #00ff00; margin-bottom: 20px; }
+        button { background: transparent; border: 1px solid #00ff00; color: #00ff00; padding: 10px 20px; cursor: pointer; }
+        button:hover { background: #00ff00; color: #000; }
+        #status { margin-top: 20px; color: #fff; }
+        .log { height: 300px; overflow-y: auto; background: #000; padding: 10px; border: 1px solid #333; margin-top: 10px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Green Timer Stress Test Bench</h1>
+    <p>Use this to simulate a massive database (15,000+ entries) to verify O(N) performance.</p>
+    
+    <div class="controls">
+        <label>Problem Count: </label>
+        <input type="number" id="probCount" value="3000" style="background:#000; color:#0f0; border:1px solid #0f0; padding:5px;">
+        <br><br>
+        <label>Submissions Per Problem: </label>
+        <input type="number" id="subCount" value="5" style="background:#000; color:#0f0; border:1px solid #0f0; padding:5px;">
+        <br><br>
+        <button id="generateBtn">GENERATE & INJECT DATA</button>
+        <button id="clearBtn" style="color:red; border-color:red;">CLEAR ALL STORAGE</button>
+    </div>
+
+    <div id="status">Ready.</div>
+    <div class="log" id="log"></div>
+
+    <script src="stress-test.js"></script>
+</body>
+</html>

@@ -16,7 +16,7 @@ mkdir -p $OUT_DIR
 # Remove old build if exists
 rm -f $OUT_DIR/$FILENAME
 
-# Create zip file with required extension files
+# Create zip file with required extension files (excluding dev tools)
 zip -r $OUT_DIR/$FILENAME \
     manifest.json \
     popup.html \
@@ -28,7 +28,8 @@ zip -r $OUT_DIR/$FILENAME \
     icons/ \
     LICENSE \
     README.md \
-    PRIVACY.md
+    PRIVACY.md \
+    -x "test-bench.html" "stress-test.js"
 
 echo "✅ Build complete: ${OUT_DIR}/${FILENAME}"
 echo "🚀 Ready for upload to Chrome Web Store and Firefox Add-ons!"

@@ -2055,6 +2055,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  const openTestBench = document.getElementById('open-test-bench');
+  if (openTestBench) {
+    openTestBench.addEventListener('click', () => {
+      api.tabs.create({ url: api.runtime.getURL('test-bench.html') });
+    });
+  }
+
   const factoryResetBtn = document.getElementById('factory-reset');
   if (factoryResetBtn) factoryResetBtn.addEventListener('click', async () => {
     if (confirm('FACTORY RESET? This will clear ALL data, history, and settings forever.')) {

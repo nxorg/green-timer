@@ -48,9 +48,8 @@ async function showProblemAnalytics(problemName, problemNumber) {
   const title = document.getElementById('analytics-title');
   title.textContent = (problemNumber ? problemNumber + ". " : "") + problemName;
 
-  const d = await activeStorage.get('leetcode_history');
-  const history = d.leetcode_history || [];
-  const attempts = history.filter(h => h.name === problemName && h.number === problemNumber).reverse(); // Oldest first for chart
+  const prob = currentHistory.find(p => p.name === problemName && (p.number === problemNumber || (!p.number && !problemNumber)));
+  const attempts = prob ? [...prob.submissions].reverse() : []; // Oldest first for chart
 
   if (attempts.length === 0) {
     alert("No history found for this problem yet. Finish it once to see analytics!");
@@ -931,7 +930,15 @@ function renderTagsInModal() {
 
 async function addTagToProblem(tag) {
   const { type, index } = taggingContext;
-  const targetProb = type === 'active' ? problems[index] : currentHistory[index];
+  
+  let targetProb;
+  if (type === 'active') {
+    targetProb = problems[index];
+  } else {
+    // Index in currentHistory
+    targetProb = currentHistory[index];
+  }
+  
   const metaKey = targetProb.number || targetProb.name;
   
   // 1. Update Centralized Metadata
@@ -950,15 +957,12 @@ async function addTagToProblem(tag) {
   });
   await saveProblems();
 
-  // 3. Sync all History Entries
-  let historyChanged = false;
-  currentHistory.forEach(h => {
-    if ((h.number || h.name) === metaKey) {
-      h.tags = [...updatedTags];
-      historyChanged = true;
-    }
-  });
-  if (historyChanged) await saveHistory();
+  // 3. Sync nested History Master
+  const masterProb = currentHistory.find(p => (p.number || p.name) === metaKey);
+  if (masterProb) {
+    masterProb.tags = [...updatedTags];
+    await saveHistory();
+  }
 
   renderTagsInModal();
   if (type === 'active') renderProblems(); else filterHistory();
@@ -966,7 +970,14 @@ async function addTagToProblem(tag) {
 
 async function removeTagFromProblem(tag) {
   const { type, index } = taggingContext;
-  const targetProb = type === 'active' ? problems[index] : currentHistory[index];
+  
+  let targetProb;
+  if (type === 'active') {
+    targetProb = problems[index];
+  } else {
+    targetProb = currentHistory[index];
+  }
+  
   const metaKey = targetProb.number || targetProb.name;
   
   // 1. Update Centralized Metadata
@@ -984,15 +995,12 @@ async function removeTagFromProblem(tag) {
   });
   await saveProblems();
 
-  // 3. Sync all History Entries
-  let historyChanged = false;
-  currentHistory.forEach(h => {
-    if ((h.number || h.name) === metaKey) {
-      h.tags = [...updatedTags];
-      historyChanged = true;
-    }
-  });
-  if (historyChanged) await saveHistory();
+  // 3. Sync nested History Master
+  const masterProb = currentHistory.find(p => (p.number || p.name) === metaKey);
+  if (masterProb) {
+    masterProb.tags = [...updatedTags];
+    await saveHistory();
+  }
 
   renderTagsInModal();
   if (type === 'active') renderProblems(); else filterHistory();
@@ -1049,20 +1057,91 @@ function updateAutocompleteHighlight(list) {
 }
 
 // --- History ---
+let currentHistory = []; // Now stores nested Problem objects: { name, number, ..., submissions: [] }
+
+function migrateHistory(flat) {
+  if (!Array.isArray(flat)) return [];
+  if (flat.length > 0 && flat[0].submissions) return flat; // Already nested
+  
+  const nested = [];
+  flat.forEach(item => {
+    const key = item.number || item.name;
+    let prob = nested.find(p => (p.number || p.name) === key);
+    if (!prob) {
+      prob = {
+        name: item.name,
+        number: item.number,
+        url: item.url,
+        difficulty: item.difficulty,
+        tags: item.tags || [],
+        submissions: []
+      };
+      nested.push(prob);
+    }
+    prob.submissions.push({
+      status: item.status,
+      timeStr: item.timeStr,
+      elapsedMs: item.elapsedMs,
+      timestamp: item.timestamp,
+      notes: item.notes || ""
+    });
+  });
+  // Sort problems by their most recent submission
+  return nested.sort((a, b) => {
+    const lastA = Math.max(...a.submissions.map(s => s.timestamp));
+    const lastB = Math.max(...b.submissions.map(s => s.timestamp));
+    return lastB - lastA;
+  });
+}
+
+function getFlatHistory() {
+  const flat = [];
+  currentHistory.forEach(p => {
+    p.submissions.forEach(s => {
+      flat.push({
+        ...p,
+        ...s,
+        submissions: undefined // Exclude the array from the flat objects
+      });
+    });
+  });
+  return flat.sort((a, b) => b.timestamp - a.timestamp);
+}
+
 async function logToHistory(prob, elapsed) {
-  const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || [];
-  h.unshift({ 
-    name: prob.name, 
-    number: prob.number, 
-    url: prob.url, 
-    difficulty: prob.difficulty || "", 
+  const d = await activeStorage.get('leetcode_history');
+  let h = migrateHistory(d.leetcode_history || []);
+  
+  const key = prob.number || prob.name;
+  let existingProb = h.find(p => (p.number || p.name) === key);
+  
+  const submission = {
     status: prob.status || "Completed",
-    timeStr: formatTime(elapsed, true), 
+    timeStr: formatTime(elapsed, true),
     elapsedMs: elapsed,
     timestamp: Date.now(),
-    notes: prob.notes || "",
-    tags: prob.tags || []
-    });  await activeStorage.set({ leetcode_history: h });
+    notes: prob.notes || ""
+  };
+
+  if (existingProb) {
+    existingProb.submissions.unshift(submission);
+    // Update master info in case it changed
+    existingProb.url = prob.url || existingProb.url;
+    existingProb.difficulty = prob.difficulty || existingProb.difficulty;
+    existingProb.tags = [...new Set([...(existingProb.tags || []), ...(prob.tags || [])])];
+  } else {
+    h.unshift({
+      name: prob.name,
+      number: prob.number,
+      url: prob.url,
+      difficulty: prob.difficulty || "",
+      tags: prob.tags || [],
+      submissions: [submission]
+    });
+  }
+  
+  currentHistory = h;
+  await activeStorage.set({ leetcode_history: h });
 }
 function formatMarkdown(text) {
   if (!text) return "";
@@ -1075,7 +1154,10 @@ async function saveHistory() { await activeStorage.set({ leetcode_history: curre
 let currentHistory = [];
 async function renderHistory() { 
   const l = document.getElementById('log-list'), d = await activeStorage.get(['leetcode_history', 'problem_statuses', 'problem_status_colors']); 
-  currentHistory = d.leetcode_history || []; 
+  
+  // MIGRATION: Convert to nested structure on load
+  currentHistory = migrateHistory(d.leetcode_history || []); 
+  
   problemStatuses = d.problem_statuses || DEFAULT_STATUSES;
   problemStatusColors = d.problem_status_colors || DEFAULT_COLORS;
 
@@ -1095,7 +1177,9 @@ async function renderHistory() {
     let tagFilterDropdown = document.getElementById('history-tag-filter-custom');
     if (tagFilterDropdown) tagFilterDropdown.remove();
 
-    const historyTags = [...new Set(currentHistory.flatMap(h => h.tags || []))].sort();
+    // Extract all unique tags from nested problems
+    const historyTags = [...new Set(currentHistory.flatMap(p => p.tags || []))].sort();
+    
     tagFilterDropdown = createMultiSelectDropdown(historyTags, currentHistoryFilterTags, 'Filter by Tags', (vals) => {
       currentHistoryFilterTags = vals;
       filterHistory();
@@ -1136,7 +1220,9 @@ function filterHistory() {
   const filterStatus = currentHistoryFilterStatus;
   const filterTags = currentHistoryFilterTags;
 
-  const filtered = currentHistory.filter(i => {
+  const flatHistory = getFlatHistory();
+
+  const filtered = flatHistory.filter(i => {
     const matchesQuery = i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)) || (i.status && i.status.toLowerCase().includes(query));
     const matchesStatus = !filterStatus || i.status === filterStatus;
     
@@ -1166,11 +1252,13 @@ function filterHistory() {
   summary.appendChild(totalCountSpan);
   summary.appendChild(totalTimeSpan);
   l.appendChild(summary);
+
   filtered.forEach((i, idx) => {
     const fullDn = (i.number ? i.number + ". " : "") + i.name;
     let dn = fullDn; if (dn.length > 50) dn = dn.substring(0, 47) + "...";
     const dd = (val) => { const date = new Date(val); if (isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
-    const realIdx = currentHistory.indexOf(i), entry = document.createElement('div'); entry.className = 'log-entry';
+    
+    const entry = document.createElement('div'); entry.className = 'log-entry';
     
     // Top Row: Title (Left) | Action Buttons (Right)
     const topRow = document.createElement('div');
@@ -1186,13 +1274,13 @@ function filterHistory() {
     actionButtons.style.gap = '4px';
     
     const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
-    notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
+    notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = idx; notesBtn.dataset.action = 'toggle-history-notes';
     const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
     tagBtn.textContent = i.showTags ? 'HIDE TAGS' : 'TAGS'; 
-    tagBtn.dataset.index = realIdx; tagBtn.dataset.action = 'toggle-history-tags';
-    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = realIdx; anaBtn.dataset.action = 'history-analytics';
-    const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'CPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
-    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
+    tagBtn.dataset.index = idx; tagBtn.dataset.action = 'toggle-history-tags';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = idx; anaBtn.dataset.action = 'history-analytics';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'CPY'; copyBtn.dataset.index = idx; copyBtn.dataset.action = 'copy-history-note';
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = idx; delBtn.dataset.action = 'delete-history';
     
     actionButtons.appendChild(notesBtn);
     actionButtons.appendChild(tagBtn);
@@ -1223,7 +1311,7 @@ function filterHistory() {
       manageBtn.style.borderStyle = 'dashed';
       manageBtn.style.background = 'transparent';
       manageBtn.textContent = '+ MANAGE';
-      manageBtn.dataset.index = realIdx;
+      manageBtn.dataset.index = idx;
       manageBtn.dataset.action = 'open-history-tag-modal';
       tagList.appendChild(manageBtn);
       
@@ -1238,11 +1326,15 @@ function filterHistory() {
     metaGroup.className = 'meta-group';
     
     const statusDropdown = createCustomDropdown(problemStatuses, i.status || problemStatuses[0], async (val) => {
-      const entryToUpdate = currentHistory.find(item => item.timestamp === i.timestamp);
-      if (entryToUpdate) {
-        entryToUpdate.status = val;
-        await saveHistory();
-        filterHistory(); 
+      // Find the specific problem and submission in the master nested data
+      const masterProb = currentHistory.find(p => (p.number || p.name) === (i.number || i.name));
+      if (masterProb) {
+        const sub = masterProb.submissions.find(s => s.timestamp === i.timestamp);
+        if (sub) {
+          sub.status = val;
+          await saveHistory();
+          filterHistory(); 
+        }
       }
     });
     
@@ -1272,15 +1364,24 @@ function filterHistory() {
     bottomRow.appendChild(timeDateGroup);
     entry.appendChild(bottomRow);
 
-    const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${realIdx}`; notesSection.style.display = 'none';
+    const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${idx}`; notesSection.style.display = 'none';
     const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here...'; notesArea.value = i.notes || '';
     const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
-    notesArea.addEventListener('input', (e) => { currentHistory[realIdx].notes = e.target.value; autoExpand(e.target); saveHistory(); });
+    notesArea.addEventListener('input', async (e) => { 
+      const masterProb = currentHistory.find(p => (p.number || p.name) === (i.number || i.name));
+      if (masterProb) {
+        const sub = masterProb.submissions.find(s => s.timestamp === i.timestamp);
+        if (sub) {
+          sub.notes = e.target.value;
+          autoExpand(e.target);
+          await saveHistory();
+        }
+      }
+    });
     
     notesSection.appendChild(notesArea); entry.appendChild(notesSection); l.appendChild(entry);
   });
 }
-
 
 // --- JSON/CSV Restore ---
 async function handleRestore(text, isCSV = false) {
@@ -1950,12 +2051,37 @@ document.addEventListener('DOMContentLoaded', async () => {
   const logList = document.getElementById('log-list'); if(logList) logList.addEventListener('click', async (e) => {
     const action = e.target.dataset.action, idx = parseInt(e.target.dataset.index);
     if (!action || isNaN(idx)) return;
-    const entry = currentHistory[idx];
+    
+    // The index refers to the 'filtered' list in filterHistory()
+    // We need to find the specific submission in the master data
+    const sEl = document.getElementById('history-search');
+    const query = sEl ? sEl.value.toLowerCase() : "";
+    const filterStatus = currentHistoryFilterStatus;
+    const filterTags = currentHistoryFilterTags;
+    
+    const flatHistory = getFlatHistory();
+    const filtered = flatHistory.filter(i => {
+      const matchesQuery = i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)) || (i.status && i.status.toLowerCase().includes(query));
+      const matchesStatus = !filterStatus || i.status === filterStatus;
+      const matchesTags = filterTags.length === 0 || filterTags.every(t => i.tags && i.tags.includes(t));
+      return matchesQuery && matchesStatus && matchesTags;
+    });
+
+    const entry = filtered[idx];
+    if (!entry) return;
+
     if (action === 'delete-history') {
-      if (confirm('Delete this entry?')) {
-        currentHistory.splice(idx, 1);
-        await activeStorage.set({ leetcode_history: currentHistory });
-        renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats();
+      if (confirm('Delete this attempt?')) {
+        const masterProb = currentHistory.find(p => (p.number || p.name) === (entry.number || entry.name));
+        if (masterProb) {
+          masterProb.submissions = masterProb.submissions.filter(s => s.timestamp !== entry.timestamp);
+          // If no submissions left, remove the problem entirely
+          if (masterProb.submissions.length === 0) {
+            currentHistory = currentHistory.filter(p => (p.number || p.name) !== (entry.number || entry.name));
+          }
+          await saveHistory();
+          filterHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats();
+        }
       }
     } else if (action === 'copy-history-note') {
       if (entry.notes) {
@@ -1967,11 +2093,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (action === 'history-analytics') {
       showProblemAnalytics(entry.name, entry.number);
     } else if (action === 'toggle-history-tags') {
-      entry.showTags = !entry.showTags;
-      await saveHistory();
-      filterHistory();
+      // Tags are at problem level now
+      const masterProb = currentHistory.find(p => (p.number || p.name) === (entry.number || entry.name));
+      if (masterProb) {
+        masterProb.showTags = !masterProb.showTags;
+        await saveHistory();
+        filterHistory();
+      }
     } else if (action === 'open-history-tag-modal') {
-      openTagModal('history', idx);
+      // Find index in master currentHistory for openTagModal
+      const masterIdx = currentHistory.findIndex(p => (p.number || p.name) === (entry.number || entry.name));
+      if (masterIdx !== -1) {
+        taggingContext = { type: 'history', index: masterIdx };
+        openTagModal('history', masterIdx);
+      }
     } else if (action === 'toggle-history-notes') {
       const nSection = document.getElementById(`history-notes-section-${idx}`);
       if (nSection) {

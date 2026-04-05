@@ -78,6 +78,16 @@
         <button id="add-problem">Add</button>
       </div>
       <div id="detection-status" style="font-size: 0.65em; opacity: 0.8; margin-top: 2px; color: var(--green); display: none;">✅ Detected on LeetCode</div>
+      
+      <!-- Smart Review Section -->
+      <div id="review-today-section" style="display: none; margin-top: 15px; border: 1px solid #ffb800; background: rgba(255, 184, 0, 0.05); padding: 10px;">
+        <div style="font-size: 0.65em; font-weight: bold; color: #ffb800; margin-bottom: 8px; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center;">
+          <span>REVISIT TODAY (SPACED REPETITION)</span>
+          <span id="review-count" style="background: #ffb800; color: #000; padding: 1px 5px; border-radius: 2px;">0</span>
+        </div>
+        <div id="review-list" style="display: flex; flex-direction: column; gap: 5px;"></div>
+      </div>
+
       <div id="problems-container" style="flex: 1; overflow-y: auto; margin-top: 10px;"></div>
     </div>
 

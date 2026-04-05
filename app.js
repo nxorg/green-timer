@@ -822,7 +822,84 @@ function renderSettings() {
   }
 }
 
+function renderReviews() {
+  const section = document.getElementById('review-today-section');
+  const list = document.getElementById('review-list');
+  const countEl = document.getElementById('review-count');
+  if (!section || !list || !countEl) return;
+
+  const now = Date.now();
+  const due = Object.entries(problemMetadata).filter(([key, meta]) => {
+    return meta.nextReview && meta.nextReview <= now;
+  });
+
+  if (due.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  countEl.textContent = due.length;
+  list.replaceChildren();
+
+  due.forEach(([key, meta]) => {
+    const item = document.createElement('div');
+    item.style.display = 'flex';
+    item.style.justifyContent = 'space-between';
+    item.style.alignItems = 'center';
+    item.style.padding = '5px 8px';
+    item.style.border = '1px solid rgba(255, 184, 0, 0.3)';
+    item.style.background = 'rgba(255, 184, 0, 0.02)';
+    
+    const info = document.createElement('div');
+    info.style.fontSize = '0.75em';
+    info.style.color = '#fff';
+    info.textContent = (key.match(/^\d+$/) ? "#" : "") + key;
+    
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-small';
+    addBtn.style.borderColor = '#ffb800';
+    addBtn.style.color = '#ffb800';
+    addBtn.style.fontSize = '0.6em';
+    addBtn.textContent = 'RE-SOLVE';
+    addBtn.onclick = async () => {
+      // Find the problem in history to get full name/url
+      const masterProb = currentHistory.find(p => (p.number || p.name) === key);
+      if (masterProb) {
+        const alreadyActive = problems.some(p => (p.number || p.name) === key);
+        if (!alreadyActive) {
+          problems.push({
+            name: masterProb.name,
+            number: masterProb.number,
+            url: masterProb.url,
+            difficulty: masterProb.difficulty,
+            tags: [...masterProb.tags],
+            elapsed: 0,
+            isRunning: false,
+            startTime: 0,
+            notes: "",
+            status: problemStatuses[0],
+            showNotes: false
+          });
+          // Remove from review once added to active
+          delete problemMetadata[key].nextReview;
+          await activeStorage.set({ problem_metadata: problemMetadata });
+          await saveProblems();
+          renderProblems();
+        } else {
+          alert("This problem is already in your active list!");
+        }
+      }
+    };
+
+    item.appendChild(info);
+    item.appendChild(addBtn);
+    list.appendChild(item);
+  });
+}
+
 function renderProblems() {
+  renderReviews();
   const c = document.getElementById('problems-container'); if (!c) return; c.replaceChildren();
   if (problems.length === 0) {
     const welcome = document.createElement('div'); welcome.style.textAlign = 'center'; welcome.style.padding = '40px 20px'; welcome.style.opacity = '0.6';
@@ -1215,6 +1292,31 @@ async function logToHistory(prob, elapsed) {
       tags: prob.tags || [],
       submissions: [submission]
     });
+  }
+
+  // --- Review Engine: Calculate Next Review Date ---
+  const metaKey = prob.number || prob.name;
+  if (!problemMetadata[metaKey]) problemMetadata[metaKey] = { tags: prob.tags || [] };
+  
+  const status = prob.status;
+  let reviewDelayDays = 0;
+  
+  // Logic: 
+  // If Struggled/Hint -> Review in 3 days
+  // If Solved Independently but not Mastered -> Review in 7 days
+  // If Needs Revision -> Review in 1 day
+  if (status === 'Struggled' || status === 'Hint-Assisted') reviewDelayDays = 3;
+  else if (status === 'Needs Revision' || status === 'Edge-Case Issues') reviewDelayDays = 1;
+  else if (status === 'Solved Independently') reviewDelayDays = 7;
+  
+  if (reviewDelayDays > 0) {
+    const nextReview = Date.now() + (reviewDelayDays * 86400000);
+    problemMetadata[metaKey].nextReview = nextReview;
+    await activeStorage.set({ problem_metadata: problemMetadata });
+  } else if (status === 'Mastered') {
+    // Clear review if mastered
+    delete problemMetadata[metaKey].nextReview;
+    await activeStorage.set({ problem_metadata: problemMetadata });
   }
   
   currentHistory = h;

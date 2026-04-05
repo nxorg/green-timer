@@ -612,6 +612,11 @@ async function initTimers() {
   problemStatusColors = data.problem_status_colors || DEFAULT_COLORS;
   globalTags = data.global_tags || DEFAULT_TAGS;
   problemMetadata = data.problem_metadata || {};
+  
+  // Initialize currentHistory early so solves work even if History tab hasn't been opened
+  const historyData = await activeStorage.get('leetcode_history');
+  currentHistory = migrateHistory(historyData.leetcode_history || []);
+
   if (data.app_settings) appSettings = { ...appSettings, ...data.app_settings };
 
   applySettingsToUI();

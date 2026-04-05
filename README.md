@@ -19,10 +19,19 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 
 ### 📊 Advanced Analytics
 - **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
+- **Problem-Specific Analytics:** Dedicated deep-dive view for every problem with average speed, personal best, and total time spent.
+- **Trend Charts:** Line charts visualizing your solving speed across multiple attempts.
 - **Activity Heatmap:** Yearly contribution heatmap (GitHub-style) to track consistency.
 - **Daily Goals:** Set and track daily problem-solving targets with live progress indicators.
 - **Deep Insights:** Hourly activity charts, 7-day and 30-day progress reports, and difficulty distribution.
 - **Streaks:** Maintain and visualize your daily coding streaks.
+
+### 🏷️ Smart Tagging System
+- **Auto-Fetching:** Automatically extracts topic tags from LeetCode.
+- **Centralized Tags:** Tags are synchronized across all attempts of the same problem.
+- **Multi-Select Filtering:** Filter history using multiple tags with intuitive removable badges.
+- **Tag Library Manager:** Manage your practice categories in a centralized settings interface.
+- **Practice Insights:** Visualize your most practiced categories through a dynamic tag distribution list.
 
 ### 📝 Rich History & Notes
 - **Inline Editing:** Edit problem notes directly within the glass-terminal history log.

@@ -1,0 +1,38 @@
+✦ Since version v1.1.0, we have built out the foundation for v1.2.0, focusing on deep analytics, a sophisticated tagging system, and
+  "perfect" UI alignment. 
+
+  Here is the breakdown of everything added:
+
+  1. Problem Deep Analytics (📊 Icon)
+   * Analytics Modal: Added a dedicated deep-dive view for every specific problem.
+   * Performance Stats: Automatically calculates your Average Speed, Personal Best, and Cumulative Time spent on that question.
+   * Trend Chart: A line chart (using Chart.js) visualizing your solving speed over multiple attempts.
+   * Attempt Timeline: a chronological list of every time you worked on that problem, including your notes.
+   * Copy Report: A button to generate a professionally formatted Markdown report of your progress for study notes.
+
+  2. Centralized Tag System (The "Perfect" Tags)
+   * Auto-Fetching: Improved detection logic to automatically capture LeetCode topic tags (e.g., Array, DP, String).
+   * Manual Tagging: A new "TAGS" button on every problem (active and history) to add your own custom categories.
+   * Tag Manager (Settings): A central place to create, view, and delete tags. It shows usage counts (e.g., "Array (5)").
+   * Keyboard Autocomplete: High-performance autocomplete menu when tagging. Supports Tab/Arrows to navigate and Enter to select.
+   * Strict Policy: Enforced a library-style system where you pick from existing tags to keep your data clean and consistent.
+
+  3. Unified & Responsive Layout
+   * Consistent Rows: Refactored both the Problems and History tabs to use an identical flexbox structure.
+   * Perfect Alignment: 
+       * Top Row: Title (Left) | Action Buttons (Right).
+       * Bottom Row: Status/Meta (Left) | Timer/Date (Right).
+   * Spaced Metadata: Added fixed 10px gaps between Difficulty, Time, and Date to prevent text from crashing together.
+   * Condensed Controls: Shortened button labels (DONE, RST, CPY) to ensure they fit perfectly on mobile screens.
+
+  4. Advanced Statistics
+   * Tag Distribution Chart: A new horizontal bar chart in the Stats tab showing your most practiced categories.
+   * Live Tracking: Updated the internal loop to 100ms for a smoother stopwatch, and ensured the Stats tab updates live every second
+     while you are solving.
+
+  5. Version 1.2.0 Readiness
+   * Updated manifest.json to version 1.2.0.
+   * Cleaned up popup.html structure by removing redundant code and fixing the footer positioning.
+
+  Would you like me to re-apply any specific part of these features, or continue with a new refinement?
+

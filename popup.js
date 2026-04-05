@@ -38,11 +38,202 @@ const activeStorage = {
   })
 };
 
+// --- Analytics ---
+let anaChart = null;
+
+async function showProblemAnalytics(problemName, problemNumber) {
+  const modal = document.getElementById('analytics-modal');
+  if (!modal) return;
+
+  const title = document.getElementById('analytics-title');
+  title.textContent = (problemNumber ? problemNumber + ". " : "") + problemName;
+
+  const d = await activeStorage.get('leetcode_history');
+  const history = d.leetcode_history || [];
+  const attempts = history.filter(h => h.name === problemName && h.number === problemNumber).reverse(); // Oldest first for chart
+
+  if (attempts.length === 0) {
+    alert("No history found for this problem yet. Finish it once to see analytics!");
+    return;
+  }
+
+  // Stats
+  const elapsedTimes = attempts.map(a => a.elapsedMs || 0);
+  const totalMs = elapsedTimes.reduce((a, b) => a + b, 0);
+  const avgMs = totalMs / attempts.length;
+  const bestMs = Math.min(...elapsedTimes);
+
+  document.getElementById('ana-avg-speed').textContent = formatTime(avgMs).split('.')[0];
+  document.getElementById('ana-personal-best').textContent = formatTime(bestMs).split('.')[0];
+  document.getElementById('ana-total-time').textContent = formatTime(totalMs).split('.')[0];
+
+  // Timeline
+  const timeline = document.getElementById('ana-timeline');
+  timeline.replaceChildren();
+  [...attempts].reverse().forEach(a => {
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    
+    const date = document.createElement('div');
+    date.className = 'timeline-date';
+    date.textContent = new Date(a.timestamp).toLocaleString();
+    
+    const statusRow = document.createElement('div');
+    statusRow.style.display = 'flex';
+    statusRow.style.alignItems = 'center';
+    statusRow.style.gap = '8px';
+    statusRow.style.marginBottom = '4px';
+
+    const statusColor = getStatusColor(a.status);
+    const statusBadge = document.createElement('span');
+    statusBadge.className = 'tag-badge';
+    statusBadge.style.backgroundColor = statusColor.startsWith('var(') ? 'var(--green)' : statusColor;
+    statusBadge.style.borderColor = 'transparent';
+    statusBadge.style.color = '#000000'; // Dark text for high visibility on green/colored backgrounds
+    statusBadge.style.fontSize = '0.55em';
+    statusBadge.style.padding = '1px 4px';
+    statusBadge.textContent = a.status;
+
+    const time = document.createElement('div');
+    time.className = 'timeline-time';
+    time.style.margin = '0';
+    time.textContent = a.timeStr;
+    
+    statusRow.appendChild(statusBadge);
+    statusRow.appendChild(time);
+
+    item.appendChild(date);
+    item.appendChild(statusRow);
+    
+    if (a.notes) {
+      const notes = document.createElement('div');
+      notes.className = 'timeline-notes';
+      notes.textContent = a.notes;
+      item.appendChild(notes);
+    }
+    
+    timeline.appendChild(item);
+  });
+
+  // Chart
+  const ctx = document.getElementById('ana-trend-chart').getContext('2d');
+  if (anaChart) anaChart.destroy();
+
+  const isLight = document.body.classList.contains('light-mode');
+  const mainGreen = isLight ? '#008000' : '#00ff00';
+  const textColor = isLight ? '#333333' : '#ffffff';
+  const gridColor = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
+
+  const labels = attempts.map((_, i) => `Attempt ${i + 1}`);
+  const data = attempts.map(a => (a.elapsedMs || 0) / 60000); // Minutes
+
+  anaChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Minutes',
+        data: data,
+        borderColor: mainGreen,
+        backgroundColor: isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true,
+        pointBackgroundColor: mainGreen,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (context) => `Time: ${context.raw.toFixed(2)} mins`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: { color: gridColor },
+          ticks: { color: textColor, font: { size: 10 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: textColor, font: { size: 10 } }
+        }
+      }
+    }
+  });
+
+  modal.classList.add('show');
+  
+  // Copy Report listener
+  const copyBtn = document.getElementById('ana-copy-report');
+  copyBtn.onclick = () => {
+    const report = generateMarkdownReport(problemName, problemNumber, attempts, avgMs, bestMs, totalMs);
+    navigator.clipboard.writeText(report).then(() => {
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = 'COPIED!';
+      setTimeout(() => copyBtn.textContent = originalText, 2000);
+    });
+  };
+}
+
+function generateMarkdownReport(name, num, attempts, avg, best, total) {
+  let report = `# Problem Report: ${num ? num + ". " : ""}${name}\n\n`;
+  report += `## Performance Summary\n`;
+  report += `- **Average Speed:** ${formatTime(avg)}\n`;
+  report += `- **Personal Best:** ${formatTime(best)}\n`;
+  report += `- **Total Time Spent:** ${formatTime(total)}\n`;
+  report += `- **Total Attempts:** ${attempts.length}\n\n`;
+  report += `## Attempt History\n`;
+  
+  [...attempts].reverse().forEach((a, i) => {
+    report += `### Attempt ${attempts.length - i} (${new Date(a.timestamp).toLocaleDateString()})\n`;
+    report += `- **Time:** ${a.timeStr}\n`;
+    if (a.notes) report += `- **Notes:** ${a.notes}\n`;
+    report += `\n`;
+  });
+  
+  report += `\n---\n*Generated by Green Timer*`;
+  return report;
+}
+
 // --- Theme ---
 async function initTheme() {
   const data = await activeStorage.get('theme');
   if (data.theme === 'light') document.body.classList.add('light-mode');
   else document.body.classList.remove('light-mode');
+}
+
+async function saveSettingsTags() {
+  await activeStorage.set({ global_tags: globalTags });
+}
+
+function renderSettingsTags() {
+  const list = document.getElementById('settings-tag-list');
+  if (!list) return;
+  list.replaceChildren();
+  
+  // Sort global tags
+  globalTags.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+  
+  globalTags.forEach(tag => {
+    const badge = document.createElement('span');
+    badge.className = 'tag-badge removable';
+    badge.textContent = tag;
+    badge.onclick = async () => {
+      if (confirm(`Delete tag "${tag}" from library?`)) {
+        globalTags = globalTags.filter(t => t !== tag);
+        await saveSettingsTags();
+        renderSettingsTags();
+      }
+    };
+    list.appendChild(badge);
+  });
 }
 
 // --- Tab Logic ---
@@ -65,9 +256,9 @@ function initTabs() {
     const target = document.getElementById(tabName);
     if (target) target.classList.add('active');
     if (tabName === 'log') renderHistory();
-    if (tabName === 'stats') setTimeout(renderStats, 50);
+    if (tabName === 'stats') setTimeout(() => renderStats(true), 50);
     if (tabName === 'stopwatch') renderProblems();
-    if (tabName === 'settings') renderStatuses();
+    if (tabName === 'settings') { renderStatuses(); renderSettingsTags(); }
     
     await activeStorage.set({ last_tab: tabName });
   };
@@ -172,6 +363,83 @@ function createCustomDropdown(options, selectedValue, onSelect) {
   return container;
 }
 
+function createMultiSelectDropdown(options, selectedValues, placeholder, onSelect) {
+  const container = document.createElement('div');
+  container.className = 'custom-dropdown';
+  
+  const selected = document.createElement('div');
+  selected.className = 'dropdown-selected';
+  selected.style.color = 'var(--text-color)';
+  
+  const updateSelectedText = () => {
+    if (selectedValues.length === 0) {
+      selected.textContent = placeholder;
+      selected.style.opacity = '0.6';
+    } else {
+      selected.textContent = selectedValues.length === 1 ? selectedValues[0] : `${selectedValues.length} Tags Selected`;
+      selected.style.opacity = '1';
+    }
+  };
+  updateSelectedText();
+  
+  const menu = document.createElement('div');
+  menu.className = 'dropdown-options';
+  menu.style.maxHeight = '300px';
+  menu.style.overflowY = 'auto';
+  
+  const renderOptions = () => {
+    menu.replaceChildren();
+    
+    // Clear All option
+    if (selectedValues.length > 0) {
+      const clearItem = document.createElement('div');
+      clearItem.className = 'dropdown-option';
+      clearItem.style.color = '#ff4d4d';
+      clearItem.style.fontWeight = 'bold';
+      clearItem.textContent = '✕ CLEAR ALL';
+      clearItem.onclick = (e) => {
+        e.stopPropagation();
+        selectedValues.length = 0;
+        updateSelectedText();
+        renderOptions();
+        onSelect([...selectedValues]);
+      };
+      menu.appendChild(clearItem);
+    }
+
+    options.forEach(opt => {
+      const isSelected = selectedValues.includes(opt);
+      if (isSelected) return; // Skip already selected tags to avoid redundancy
+      
+      const item = document.createElement('div');
+      item.className = 'dropdown-option';
+      item.textContent = opt;
+      item.style.color = 'var(--text-color)';
+
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        selectedValues.push(opt);
+        updateSelectedText();
+        renderOptions();
+        onSelect([...selectedValues]);
+      });
+      menu.appendChild(item);
+    });
+  };
+  renderOptions();
+  
+  selected.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isShowing = menu.classList.contains('show');
+    document.querySelectorAll('.dropdown-options.show').forEach(m => m.classList.remove('show'));
+    if (!isShowing) menu.classList.add('show');
+  });
+  
+  container.appendChild(selected);
+  container.appendChild(menu);
+  return container;
+}
+
 function formatTime(ms, isSW = false) {
   if (!ms || isNaN(ms)) ms = 0;
   let s = Math.floor(ms / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
@@ -260,7 +528,13 @@ async function requestLeetCodeTitle() {
 }
 
 // --- Timer/SW ---
-let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [], problemStatuses = [], problemStatusColors = {}, currentHistoryFilterStatus = "";
+let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [], problemStatuses = [], problemStatusColors = {}, currentHistoryFilterStatus = "", currentHistoryFilterTags = [], globalTags = [];
+let problemMetadata = {}; // Store tags/meta by problem key (number or name)
+let taggingContext = { type: '', index: -1 }; // Context for the tag modal
+let tagAutocompleteIdx = -1;
+
+const DEFAULT_TAGS = ['Array', 'String', 'Hash Table', 'Dynamic Programming', 'Math', 'Sorting', 'Greedy', 'Depth-First Search', 'Binary Search', 'Breadth-First Search', 'Tree', 'Matrix', 'Two Pointers', 'Binary Tree', 'Stack', 'Design', 'Backtracking', 'Graph', 'Linked List', 'Bit Manipulation', 'Heap (Priority Queue)', 'Sliding Window', 'Union Find', 'Counting', 'Trie', 'Monotonic Stack', 'Recursion', 'Divide and Conquer', 'Queue', 'Memoization', 'Binary Search Tree'];
+
 let appSettings = {
   defaultTime: 25,
   presets: [5, 10, 25, 50],
@@ -305,18 +579,19 @@ const DEFAULT_COLORS_LIGHT = {
 };
 
 async function initTimers() {
-  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running', 'problem_statuses', 'problem_status_colors', 'app_settings']);
+  const data = await activeStorage.get(['timer_target', 'sw_elapsed', 'sw_start_time', 'sw_is_running', 'problem_statuses', 'problem_status_colors', 'app_settings', 'global_tags', 'problem_metadata']);
   if (data.timer_target && data.timer_target > Date.now()) { timerTargetTime = data.timer_target; startTimerUI(); }
   swElapsedTime = data.sw_elapsed || 0;
   if (data.sw_is_running) { swStartTime = data.sw_start_time || Date.now(); startStandaloneSwUI(); } else { updateSwDisplay(); }
-  
+
   problemStatuses = data.problem_statuses || DEFAULT_STATUSES;
   problemStatusColors = data.problem_status_colors || DEFAULT_COLORS;
+  globalTags = data.global_tags || DEFAULT_TAGS;
+  problemMetadata = data.problem_metadata || {};
   if (data.app_settings) appSettings = { ...appSettings, ...data.app_settings };
-  
+
   applySettingsToUI();
-}
-function startTimerUI() {
+}function startTimerUI() {
   if (timerInterval) clearInterval(timerInterval);
   timerInterval = setInterval(() => {
     const tl = timerTargetTime - Date.now();
@@ -489,45 +764,102 @@ function renderProblems() {
     const r = document.createElement('div'); r.className = 'problem-row';
     const cur = p.isRunning ? (Date.now() - p.startTime) : p.elapsed, dn = (p.number ? p.number + ". " : "") + p.name;
     
-    const title = document.createElement('div'); title.className = 'problem-list-title';
-    title.style.marginBottom = '5px';
+    // Top Row: Title (Left) | Action Buttons (Right)
+    const topRow = document.createElement('div');
+    topRow.className = 'problem-top-row';
+    
+    const title = document.createElement('div');
+    title.className = 'problem-list-title';
     title.title = dn;
     if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; a.title = dn; title.appendChild(a); } else title.textContent = dn;
-    r.appendChild(title);
-
-    const header = document.createElement('div'); header.className = 'problem-header';
-    header.style.borderBottom = 'none';
-    header.style.paddingBottom = '0';
-    header.style.marginBottom = '5px';
     
-    const btnRow = document.createElement('div');
-    btnRow.style.display = 'flex';
-    btnRow.style.gap = '4px';
-    btnRow.style.alignItems = 'center';
-    btnRow.style.marginLeft = 'auto'; /* Push all buttons to the far right */
+    const actionButtons = document.createElement('div');
+    actionButtons.style.display = 'flex';
+    actionButtons.style.gap = '4px';
     
-    const statusDropdown = createCustomDropdown(problemStatuses, p.status || problemStatuses[0], (val) => {
-      problems[i].status = val;
-      saveProblems();
-    });
-
-    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; notesBtn.style.marginRight = '0'; notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
-    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = '0 0 10px var(--green)';
+    const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
+    tagBtn.textContent = p.showTags ? 'HIDE TAGS' : 'TAGS'; 
+    tagBtn.dataset.index = i; tagBtn.dataset.action = 'toggle-tags';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = i; anaBtn.dataset.action = 'analytics';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
     
-    btnRow.appendChild(statusDropdown);
-    btnRow.appendChild(notesBtn);
-    btnRow.appendChild(delBtn);
-    header.appendChild(btnRow);
-    r.appendChild(header);
+    actionButtons.appendChild(tagBtn);
+    actionButtons.appendChild(anaBtn);
+    actionButtons.appendChild(delBtn);
+    
+    topRow.appendChild(title);
+    topRow.appendChild(actionButtons);
+    r.appendChild(topRow);
 
-    const controls = document.createElement('div'); controls.className = 'problem-controls';
-    const time = document.createElement('div'); time.className = 'problem-time'; time.id = `time-${i}`; time.textContent = formatTime(cur, true);
+    // Middle: Inline Tags (Conditional)
+    if (p.showTags) {
+      const tagList = document.createElement('div');
+      tagList.className = 'tag-list-inline';
+      tagList.style.marginBottom = '10px';
+      tagList.style.marginTop = '-5px';
+      if (p.tags && p.tags.length > 0) {
+        p.tags.forEach(t => {
+          const span = document.createElement('span');
+          span.className = 'tag-badge';
+          span.textContent = t;
+          tagList.appendChild(span);
+        });
+      }
+      const manageBtn = document.createElement('button');
+      manageBtn.className = 'tag-badge';
+      manageBtn.style.borderStyle = 'dashed';
+      manageBtn.style.background = 'transparent';
+      manageBtn.textContent = '+ MANAGE';
+      manageBtn.dataset.index = i;
+      manageBtn.dataset.action = 'open-tag-modal';
+      tagList.appendChild(manageBtn);
+      
+      r.appendChild(tagList);
+    }
+
+    // Bottom Row: Status/Meta (Left) | Timer/Controls (Right)
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'problem-bottom-row';
+    
+    const metaGroup = document.createElement('div');
+    metaGroup.className = 'meta-group';
+    
+    const statusDropdown = createCustomDropdown(problemStatuses, p.status || problemStatuses[0], async (val) => {
+      problems[i].status = val;
+      await saveProblems();
+    });
+    
+    metaGroup.appendChild(statusDropdown);
+    
+    const controlsGroup = document.createElement('div');
+    controlsGroup.className = 'controls-group';
+    
+    const timeDisplay = document.createElement('div');
+    timeDisplay.className = 'problem-time';
+    timeDisplay.id = `time-${i}`;
+    timeDisplay.textContent = formatTime(cur, true);
+    
     const toggleBtn = document.createElement('button'); toggleBtn.className = 'btn-small'; toggleBtn.textContent = p.isRunning ? 'PAUSE' : 'START'; toggleBtn.dataset.index = i; toggleBtn.dataset.action = 'toggle';
-    const resetBtn = document.createElement('button'); resetBtn.className = 'btn-small'; resetBtn.textContent = 'RESET'; resetBtn.dataset.index = i; resetBtn.dataset.action = 'reset';
-    const finishBtn = document.createElement('button'); finishBtn.className = 'btn-small'; finishBtn.textContent = 'FINISH'; finishBtn.dataset.index = i; finishBtn.dataset.action = 'finish';
-    controls.appendChild(time); controls.appendChild(toggleBtn); controls.appendChild(resetBtn); controls.appendChild(finishBtn);
-    r.appendChild(header); r.appendChild(controls);
+    const resetBtn = document.createElement('button'); resetBtn.className = 'btn-small'; resetBtn.textContent = 'RST'; resetBtn.dataset.index = i; resetBtn.dataset.action = 'reset';
+    const finishBtn = document.createElement('button'); finishBtn.className = 'btn-small'; finishBtn.textContent = 'DONE'; finishBtn.dataset.index = i; finishBtn.dataset.action = 'finish';
+    
+    controlsGroup.appendChild(timeDisplay);
+    controlsGroup.appendChild(toggleBtn);
+    controlsGroup.appendChild(resetBtn);
+    controlsGroup.appendChild(finishBtn);
+    
+    bottomRow.appendChild(metaGroup);
+    bottomRow.appendChild(controlsGroup);
+    r.appendChild(bottomRow);
+
+    // Notes Button (moved to action buttons above)
+    const notesBtn = document.createElement('button'); 
+    notesBtn.className = 'btn-small'; 
+    notesBtn.textContent = p.showNotes ? 'HIDE NOTES' : (p.notes ? 'EDIT NOTES' : 'ADD NOTE'); 
+    notesBtn.dataset.index = i; notesBtn.dataset.action = 'toggle-notes';
+    if (p.notes && !p.showNotes) notesBtn.style.boxShadow = '0 0 10px var(--green)';
+    actionButtons.prepend(notesBtn);
+
     const notesSection = document.createElement('div'); notesSection.id = `notes-section-${i}`; notesSection.style.display = p.showNotes ? 'block' : 'none';
     const notesArea = document.createElement('textarea'); notesArea.className = 'notes-textarea'; notesArea.placeholder = 'Enter notes here (will be saved in history)...'; notesArea.value = p.notes || '';
     const autoExpand = (el) => { el.style.height = 'auto'; el.style.height = (el.scrollHeight) + 'px'; };
@@ -552,9 +884,168 @@ function startUIInterval() {
     });
     // Update stats tab less frequently to save performance (every 1s)
     if (Date.now() % 1000 < 150) {
-      if (document.getElementById('stats').classList.contains('active')) renderStats();
+      if (document.getElementById('stats').classList.contains('active')) renderStats(false);
     }
   }, 100);
+}
+
+// --- Tagging ---
+function openTagModal(type, index) {
+  taggingContext = { type, index };
+  const modal = document.getElementById('tag-modal');
+  const title = document.getElementById('tag-modal-title');
+  const input = document.getElementById('tag-autocomplete-input');
+  
+  const p = type === 'active' ? problems[index] : currentHistory[index];
+  title.textContent = `Tag: ${p.name}`;
+  input.value = '';
+  
+  renderTagsInModal();
+  modal.classList.add('show');
+  input.focus();
+}
+
+function renderTagsInModal() {
+  const container = document.getElementById('current-tags-container');
+  container.replaceChildren();
+  
+  const p = taggingContext.type === 'active' ? problems[taggingContext.index] : currentHistory[taggingContext.index];
+  const tags = p.tags || [];
+  
+  if (tags.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.opacity = '0.5';
+    empty.style.fontSize = '0.7em';
+    empty.textContent = 'No tags yet.';
+    container.appendChild(empty);
+  } else {
+    tags.forEach(tag => {
+      const badge = document.createElement('span');
+      badge.className = 'tag-badge removable';
+      badge.textContent = tag;
+      badge.onclick = () => removeTagFromProblem(tag);
+      container.appendChild(badge);
+    });
+  }
+}
+
+async function addTagToProblem(tag) {
+  const { type, index } = taggingContext;
+  const targetProb = type === 'active' ? problems[index] : currentHistory[index];
+  const metaKey = targetProb.number || targetProb.name;
+  
+  // 1. Update Centralized Metadata
+  if (!problemMetadata[metaKey]) problemMetadata[metaKey] = { tags: [] };
+  if (!problemMetadata[metaKey].tags.includes(tag)) {
+    problemMetadata[metaKey].tags.push(tag);
+    await activeStorage.set({ problem_metadata: problemMetadata });
+  }
+  const updatedTags = problemMetadata[metaKey].tags;
+
+  // 2. Sync all Active Problems
+  problems.forEach(p => {
+    if ((p.number || p.name) === metaKey) {
+      p.tags = [...updatedTags];
+    }
+  });
+  await saveProblems();
+
+  // 3. Sync all History Entries
+  let historyChanged = false;
+  currentHistory.forEach(h => {
+    if ((h.number || h.name) === metaKey) {
+      h.tags = [...updatedTags];
+      historyChanged = true;
+    }
+  });
+  if (historyChanged) await saveHistory();
+
+  renderTagsInModal();
+  if (type === 'active') renderProblems(); else filterHistory();
+}
+
+async function removeTagFromProblem(tag) {
+  const { type, index } = taggingContext;
+  const targetProb = type === 'active' ? problems[index] : currentHistory[index];
+  const metaKey = targetProb.number || targetProb.name;
+  
+  // 1. Update Centralized Metadata
+  if (problemMetadata[metaKey] && problemMetadata[metaKey].tags) {
+    problemMetadata[metaKey].tags = problemMetadata[metaKey].tags.filter(t => t !== tag);
+    await activeStorage.set({ problem_metadata: problemMetadata });
+  }
+  const updatedTags = (problemMetadata[metaKey] && problemMetadata[metaKey].tags) ? problemMetadata[metaKey].tags : [];
+
+  // 2. Sync all Active Problems
+  problems.forEach(p => {
+    if ((p.number || p.name) === metaKey) {
+      p.tags = [...updatedTags];
+    }
+  });
+  await saveProblems();
+
+  // 3. Sync all History Entries
+  let historyChanged = false;
+  currentHistory.forEach(h => {
+    if ((h.number || h.name) === metaKey) {
+      h.tags = [...updatedTags];
+      historyChanged = true;
+    }
+  });
+  if (historyChanged) await saveHistory();
+
+  renderTagsInModal();
+  if (type === 'active') renderProblems(); else filterHistory();
+}
+
+function filterTagAutocomplete() {
+  const input = document.getElementById('tag-autocomplete-input');
+  const list = document.getElementById('tag-autocomplete-list');
+  const val = input.value.toLowerCase().trim();
+  
+  list.replaceChildren();
+  tagAutocompleteIdx = -1;
+  
+  const p = taggingContext.type === 'active' ? problems[taggingContext.index] : currentHistory[taggingContext.index];
+  const currentTags = p.tags || [];
+  
+  // Show top tags if empty, otherwise filter
+  let matches = [];
+  if (!val) {
+    matches = globalTags.filter(t => !currentTags.includes(t)).slice(0, 20);
+  } else {
+    matches = globalTags.filter(t => t.toLowerCase().includes(val) && !currentTags.includes(t)).slice(0, 15);
+  }
+  
+  if (matches.length > 0) {
+    matches.forEach((m, i) => {
+      const opt = document.createElement('div');
+      opt.className = 'dropdown-option';
+      opt.textContent = m;
+      opt.onclick = () => {
+        addTagToProblem(m);
+        input.value = '';
+        list.classList.remove('show');
+      };
+      opt.onmouseenter = () => {
+        tagAutocompleteIdx = i;
+        updateAutocompleteHighlight(list);
+      };
+      list.appendChild(opt);
+    });
+    list.classList.add('show');
+  } else {
+    list.classList.remove('show');
+  }
+}
+
+function updateAutocompleteHighlight(list) {
+  if (!list) return;
+  const options = list.querySelectorAll('.dropdown-option');
+  options.forEach((opt, i) => {
+    if (i === tagAutocompleteIdx) opt.classList.add('highlighted');
+    else opt.classList.remove('highlighted');
+  });
 }
 
 // --- History ---
@@ -567,11 +1058,11 @@ async function logToHistory(prob, elapsed) {
     difficulty: prob.difficulty || "", 
     status: prob.status || "Completed",
     timeStr: formatTime(elapsed, true), 
-    elapsedMs: elapsed, 
-    timestamp: Date.now(), 
-    notes: prob.notes || "" 
-  });
-  await activeStorage.set({ leetcode_history: h });
+    elapsedMs: elapsed,
+    timestamp: Date.now(),
+    notes: prob.notes || "",
+    tags: prob.tags || []
+    });  await activeStorage.set({ leetcode_history: h });
 }
 function formatMarkdown(text) {
   if (!text) return "";
@@ -600,21 +1091,59 @@ async function renderHistory() {
     filterDropdown.id = 'history-status-filter-custom';
     filterDropdown.style.width = '100%';
     filterContainer.appendChild(filterDropdown);
+
+    let tagFilterDropdown = document.getElementById('history-tag-filter-custom');
+    if (tagFilterDropdown) tagFilterDropdown.remove();
+
+    const historyTags = [...new Set(currentHistory.flatMap(h => h.tags || []))].sort();
+    tagFilterDropdown = createMultiSelectDropdown(historyTags, currentHistoryFilterTags, 'Filter by Tags', (vals) => {
+      currentHistoryFilterTags = vals;
+      filterHistory();
+    });
+    tagFilterDropdown.id = 'history-tag-filter-custom';
+    tagFilterDropdown.style.width = '100%';
+    const tagFilterContainer = document.getElementById('history-tag-filter-container');
+    if (tagFilterContainer) tagFilterContainer.appendChild(tagFilterDropdown);
   }
 
   if (l) filterHistory(); 
 }
 
+function renderActiveTagFilters() {
+  const container = document.getElementById('active-tag-filters');
+  if (!container) return;
+  container.replaceChildren();
+  
+  currentHistoryFilterTags.forEach(tag => {
+    const badge = document.createElement('span');
+    badge.className = 'tag-badge removable';
+    badge.style.fontSize = '0.55em';
+    badge.textContent = tag;
+    badge.onclick = () => {
+      currentHistoryFilterTags = currentHistoryFilterTags.filter(t => t !== tag);
+      filterHistory();
+      renderHistory(); // Refresh dropdown state
+    };
+    container.appendChild(badge);
+  });
+}
+
 function filterHistory() {
   const l = document.getElementById('log-list'); if(!l) return;
+  renderActiveTagFilters();
   const sEl = document.getElementById('history-search');
   const query = sEl ? sEl.value.toLowerCase() : "";
   const filterStatus = currentHistoryFilterStatus;
+  const filterTags = currentHistoryFilterTags;
 
   const filtered = currentHistory.filter(i => {
     const matchesQuery = i.name.toLowerCase().includes(query) || (i.number && i.number.toString().includes(query)) || (i.notes && i.notes.toLowerCase().includes(query)) || (i.status && i.status.toLowerCase().includes(query));
     const matchesStatus = !filterStatus || i.status === filterStatus;
-    return matchesQuery && matchesStatus;
+    
+    // Multi-tag matching (AND logic: must have all selected tags)
+    const matchesTags = filterTags.length === 0 || filterTags.every(t => i.tags && i.tags.includes(t));
+    
+    return matchesQuery && matchesStatus && matchesTags;
   });
   l.replaceChildren();
   if (filtered.length === 0) { const msg = document.createElement('div'); msg.style.opacity = '0.5'; msg.style.padding = '10px'; msg.textContent = 'No results found.'; l.appendChild(msg); return; }
@@ -643,60 +1172,104 @@ function filterHistory() {
     const dd = (val) => { const date = new Date(val); if (isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
     const realIdx = currentHistory.indexOf(i), entry = document.createElement('div'); entry.className = 'log-entry';
     
-    const title = document.createElement('div'); title.className = 'log-entry-title';
-    title.style.marginBottom = '5px';
+    // Top Row: Title (Left) | Action Buttons (Right)
+    const topRow = document.createElement('div');
+    topRow.className = 'problem-top-row';
+    
+    const title = document.createElement('div');
+    title.className = 'log-entry-title';
     title.title = fullDn;
     if (i.url) { const a = document.createElement('a'); a.href = i.url; a.target = '_blank'; a.textContent = dn; a.title = fullDn; title.appendChild(a); } else title.textContent = dn;
-    entry.appendChild(title);
+    
+    const actionButtons = document.createElement('div');
+    actionButtons.style.display = 'flex';
+    actionButtons.style.gap = '4px';
+    
+    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
+    notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
+    const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
+    tagBtn.textContent = i.showTags ? 'HIDE TAGS' : 'TAGS'; 
+    tagBtn.dataset.index = realIdx; tagBtn.dataset.action = 'toggle-history-tags';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = realIdx; anaBtn.dataset.action = 'history-analytics';
+    const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'CPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
+    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
+    
+    actionButtons.appendChild(notesBtn);
+    actionButtons.appendChild(tagBtn);
+    actionButtons.appendChild(anaBtn);
+    actionButtons.appendChild(copyBtn);
+    actionButtons.appendChild(delBtn);
+    
+    topRow.appendChild(title);
+    topRow.appendChild(actionButtons);
+    entry.appendChild(topRow);
 
-    const bottomRow = document.createElement('div');
-    bottomRow.style.display = 'flex';
-    bottomRow.style.justifyContent = 'space-between';
-    bottomRow.style.alignItems = 'center';
-    bottomRow.style.gap = '10px';
-    bottomRow.style.flexWrap = 'wrap';
-
-    const meta = document.createElement('div'); meta.className = 'log-entry-meta';
-    meta.style.marginTop = '0';
-    if (i.difficulty) {
-      const badge = document.createElement('span'); badge.className = 'difficulty-badge'; badge.style.marginRight = '8px'; badge.textContent = i.difficulty;
-      const d = i.difficulty.toLowerCase();
-      if (d.includes('easy')) { badge.style.color = '#00af9b'; badge.style.borderColor = '#00af9b'; }
-      else if (d.includes('medium')) { badge.style.color = '#ffb800'; badge.style.borderColor = '#ffb800'; }
-      else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
-      meta.appendChild(badge);
+    // Middle: Inline Tags (Conditional)
+    if (i.showTags) {
+      const tagList = document.createElement('div');
+      tagList.className = 'tag-list-inline';
+      tagList.style.marginBottom = '10px';
+      tagList.style.marginTop = '-5px';
+      if (i.tags && i.tags.length > 0) {
+        i.tags.forEach(t => {
+          const span = document.createElement('span');
+          span.className = 'tag-badge';
+          span.textContent = t;
+          tagList.appendChild(span);
+        });
+      }
+      const manageBtn = document.createElement('button');
+      manageBtn.className = 'tag-badge';
+      manageBtn.style.borderStyle = 'dashed';
+      manageBtn.style.background = 'transparent';
+      manageBtn.textContent = '+ MANAGE';
+      manageBtn.dataset.index = realIdx;
+      manageBtn.dataset.action = 'open-history-tag-modal';
+      tagList.appendChild(manageBtn);
+      
+      entry.appendChild(tagList);
     }
 
-    const timeSpan = document.createElement('span'); timeSpan.style.fontWeight = "bold"; timeSpan.style.color = "var(--text-color)"; timeSpan.textContent = i.timeStr; meta.appendChild(timeSpan);
-    const dateSpan = document.createElement('span'); dateSpan.style.marginLeft = "8px"; dateSpan.textContent = dd(i.timestamp); meta.appendChild(dateSpan);
+    // Bottom Row: Status/Meta (Left) | Time/Date (Right)
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'problem-bottom-row';
     
-    const btnRow = document.createElement('div'); 
-    btnRow.style.display = 'flex'; 
-    btnRow.style.gap = '4px'; 
-    btnRow.style.alignItems = 'center';
-    btnRow.style.flexShrink = '0';
-    btnRow.style.marginLeft = 'auto'; /* Push all buttons to the far right */
+    const metaGroup = document.createElement('div');
+    metaGroup.className = 'meta-group';
     
     const statusDropdown = createCustomDropdown(problemStatuses, i.status || problemStatuses[0], async (val) => {
       const entryToUpdate = currentHistory.find(item => item.timestamp === i.timestamp);
       if (entryToUpdate) {
         entryToUpdate.status = val;
         await saveHistory();
-        const fEl = document.getElementById('history-status-filter');
-        if (fEl && fEl.value) filterHistory(); 
+        filterHistory(); 
       }
     });
     
-    const notesBtn = document.createElement('button'); notesBtn.className = 'btn-small'; 
-    notesBtn.textContent = i.notes ? 'EDIT' : 'ADD'; notesBtn.dataset.index = realIdx; notesBtn.dataset.action = 'toggle-history-notes';
-    const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'COPY'; copyBtn.dataset.index = realIdx; copyBtn.dataset.action = 'copy-history-note';
-    const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = realIdx; delBtn.dataset.action = 'delete-history';
+    if (i.difficulty) {
+      const badge = document.createElement('span'); badge.className = 'difficulty-badge'; badge.textContent = i.difficulty;
+      const d = i.difficulty.toLowerCase();
+      if (d.includes('easy')) { badge.style.color = '#00af9b'; badge.style.borderColor = '#00af9b'; }
+      else if (d.includes('medium')) { badge.style.color = '#ffb800'; badge.style.borderColor = '#ffb800'; }
+      else if (d.includes('hard')) { badge.style.color = '#ff2d55'; badge.style.borderColor = '#ff2d55'; }
+      metaGroup.appendChild(badge);
+    }
     
-    btnRow.appendChild(statusDropdown);
-    btnRow.appendChild(notesBtn); btnRow.appendChild(copyBtn); btnRow.appendChild(delBtn);
+    metaGroup.appendChild(statusDropdown);
     
-    bottomRow.appendChild(meta);
-    bottomRow.appendChild(btnRow);
+    const timeDateGroup = document.createElement('div');
+    timeDateGroup.style.display = 'flex';
+    timeDateGroup.style.alignItems = 'center';
+    timeDateGroup.style.gap = '10px';
+    
+    const timeSpan = document.createElement('span'); timeSpan.style.fontWeight = "bold"; timeSpan.style.color = "var(--green)"; timeSpan.textContent = i.timeStr;
+    const dateSpan = document.createElement('span'); dateSpan.style.fontSize = "0.7em"; dateSpan.style.opacity = "0.6"; dateSpan.textContent = dd(i.timestamp);
+    
+    timeDateGroup.appendChild(timeSpan);
+    timeDateGroup.appendChild(dateSpan);
+    
+    bottomRow.appendChild(metaGroup);
+    bottomRow.appendChild(timeDateGroup);
     entry.appendChild(bottomRow);
 
     const notesSection = document.createElement('div'); notesSection.id = `history-notes-section-${realIdx}`; notesSection.style.display = 'none';
@@ -836,14 +1409,20 @@ function formatDuration(ms) {
   return mins + "m";
 }
 
-async function renderStats() {
+async function renderStats(includeCharts = true) {
   const d = await activeStorage.get(['leetcode_history', 'leetcode_problems', 'app_settings']), logs = d.leetcode_history || [], curr = d.leetcode_problems || [];
   if (d.app_settings) appSettings = { ...appSettings, ...d.app_settings };
   const isLight = document.body.classList.contains('light-mode'), mainGreen = isLight ? '#008000' : '#00ff00', gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
-  renderHeatmap(logs, isLight, mainGreen);
+  
+  if (includeCharts) renderHeatmap(logs, isLight, mainGreen);
+  
   const diffCounts = { easy: 0, medium: 0, hard: 0 };
   logs.forEach(l => { if (l && l.difficulty) { const dL = l.difficulty.toLowerCase(); if (dL.includes('easy')) diffCounts.easy++; else if (dL.includes('medium')) diffCounts.medium++; else if (dL.includes('hard')) diffCounts.hard++; } });
-  const dCtx = document.getElementById('difficultyChart'); if (dCtx) { if (dChart) dChart.destroy(); dChart = new Chart(dCtx, { type: 'doughnut', data: { labels: ['Easy', 'Medium', 'Hard'], datasets: [{ data: [diffCounts.easy, diffCounts.medium, diffCounts.hard], backgroundColor: ['#00af9b', '#ffb800', '#ff2d55'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: isLight ? '#333' : '#fff', font: { size: 10 } } } } } }); }
+  
+  if (includeCharts) {
+    const dCtx = document.getElementById('difficultyChart'); if (dCtx) { if (dChart) dChart.destroy(); dChart = new Chart(dCtx, { type: 'doughnut', data: { labels: ['Easy', 'Medium', 'Hard'], datasets: [{ data: [diffCounts.easy, diffCounts.medium, diffCounts.hard], backgroundColor: ['#00af9b', '#ffb800', '#ff2d55'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: isLight ? '#333' : '#fff', font: { size: 10 } } } } } }); }
+  }
+
   const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
   const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
   const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
@@ -883,18 +1462,68 @@ async function renderStats() {
       if (goalLabel) goalLabel.textContent = `Goal: ${solvedToday}/${appSettings.dailyGoal}`;
     }
   }
-  const l7k = [], l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
-  const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
-  const hCt = document.getElementById('progressChart'); if(hCt) { if (hChart) hChart.destroy(); hChart = new Chart(hCt, { type:'bar', data:{ labels:l7l, datasets:[{ data:d7Counts, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
-  const l30k = [], l30l = []; for (let i=29; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l30k.push(getDateKey(d)); l30l.push(i%5===0 ? (d.getMonth()+1)+'/'+d.getDate() : ''); }
-  const d30Counts = l30k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
-  const mCt = document.getElementById('monthProgressChart'); if(mCt) { if (mChart) mChart.destroy(); mChart = new Chart(mCt, { type:'bar', data:{ labels:l30l, datasets:[{ data:d30Counts, backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
-  const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp && getDateKey(l.timestamp) === todayK) { const d = new Date(l.timestamp); hrData[d.getHours()]++; } });
-  const hoCt = document.getElementById('hourlyActivityChart'); if(hoCt) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCt, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
-  const activeS = document.getElementById('active-chart-section');
-  if (curr.length > 0 && activeS) {
-    activeS.style.display = 'flex'; const aCt = document.getElementById('activeProblemsChart'); if(aCt) { if (aChart) aChart.destroy(); aChart = new Chart(aCt, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:8}}}, y:{ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
-  } else if (activeS) activeS.style.display = 'none';
+
+  if (includeCharts) {
+    const l7k = [], l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
+    const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
+    const hCt = document.getElementById('progressChart'); if(hCt) { if (hChart) hChart.destroy(); hChart = new Chart(hCt, { type:'bar', data:{ labels:l7l, datasets:[{ data:d7Counts, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
+    const l30k = [], l30l = []; for (let i=29; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l30k.push(getDateKey(d)); l30l.push(i%5===0 ? (d.getMonth()+1)+'/'+d.getDate() : ''); }
+    const d30Counts = l30k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
+    const mCt = document.getElementById('monthProgressChart'); if(mCt) { if (mChart) mChart.destroy(); mChart = new Chart(mCt, { type:'bar', data:{ labels:l30l, datasets:[{ data:d30Counts, backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
+    const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp && getDateKey(l.timestamp) === todayK) { const d = new Date(l.timestamp); hrData[d.getHours()]++; } });
+    const hoCt = document.getElementById('hourlyActivityChart'); if(hoCt) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCt, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
+    const activeS = document.getElementById('active-chart-section');
+    if (curr.length > 0 && activeS) {
+      activeS.style.display = 'flex'; const aCt = document.getElementById('activeProblemsChart'); if(aCt) { if (aChart) aChart.destroy(); aChart = new Chart(aCt, { type:'bar', data:{ labels:curr.map(p => (p.number ? p.number + " " : "") + p.name.substring(0,8)), datasets:[{ data:curr.map(p => (p.isRunning ? Date.now()-p.startTime : p.elapsed)/60000), backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, scales:{ x:{beginAtZero:true, ticks:{color:mainGreen, font:{size:8}}}, y:{ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
+    } else if (activeS) activeS.style.display = 'none';
+  }
+
+  // Tag Distribution List (Always visible in stats tab)
+  const tagCounts = {};
+  logs.forEach(l => {
+    if (l.tags && Array.isArray(l.tags)) {
+      l.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+    }
+  });
+  
+  const sortedTags = Object.entries(tagCounts).sort((a, b) => b[1] - a[1]);
+  const tagStatsList = document.getElementById('tag-stats-list');
+  
+  if (tagStatsList) {
+    tagStatsList.replaceChildren();
+    if (sortedTags.length === 0) {
+      const msg = document.createElement('div');
+      msg.style.opacity = '0.5';
+      msg.style.fontSize = '0.75em';
+      msg.textContent = 'No tags used yet.';
+      tagStatsList.appendChild(msg);
+    } else {
+      sortedTags.forEach(([tag, count]) => {
+        const badge = document.createElement('span');
+        badge.className = 'tag-badge';
+        badge.style.cursor = 'pointer';
+        badge.innerHTML = `${tag} <span style="opacity:0.6; margin-left:4px;">(${count})</span>`;
+        badge.title = `Click to see all ${tag} problems`;
+        badge.onclick = () => {
+          // 1. Set the global tag filter (reset to just this one for quick drill-down)
+          currentHistoryFilterTags = [tag];
+          
+          // 2. Switch to Log tab
+          const logBtn = document.querySelector('.tab-btn[data-tab="log"]');
+          if (logBtn) logBtn.click();
+          
+          // 3. Clear search input to avoid conflicts
+          const searchInp = document.getElementById('history-search');
+          if (searchInp) searchInp.value = '';
+          
+          // 4. Trigger filter
+          filterHistory();
+          renderHistory();
+        };
+        tagStatsList.appendChild(badge);
+      });
+    }
+  }
 }
 
 function playBeep() { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(), osc = ctx.createOscillator(), gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.type = 'square'; osc.frequency.setValueAtTime(880, ctx.currentTime); gain.gain.setValueAtTime(0.1, ctx.currentTime); osc.start(); osc.stop(ctx.currentTime + 0.2); } catch(e) {} }
@@ -976,10 +1605,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     if(!nEl) return;
     const name = nEl.value.trim();
     if (name) {
-      let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "";
+      let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "", ftags = detectedDetails ? detectedDetails.tags : [];
       if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", "");
+      
+      // Centralized Meta: Check if we have tags for this problem already
+      const metaKey = fnum || fn;
+      const existingMeta = problemMetadata[metaKey] || {};
+      const mergedTags = [...new Set([...(ftags || []), ...(existingMeta.tags || [])])];
       const initialStatus = appSettings.autoStart ? 'Started' : problemStatuses[0];
-      problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: appSettings.autoStart, startTime: appSettings.autoStart ? Date.now() : 0, notes: "", status: initialStatus, showNotes: false });
+      
+      problems.push({ name: fn, number: fnum, url: furl, difficulty: fdiff, elapsed: 0, isRunning: appSettings.autoStart, startTime: appSettings.autoStart ? Date.now() : 0, notes: "", status: initialStatus, showNotes: false, tags: mergedTags });
+      
+      // Auto-add detected tags to global library AND problem metadata
+      if (mergedTags.length > 0) {
+        let updatedLib = false;
+        mergedTags.forEach(t => { if (!globalTags.includes(t)) { globalTags.push(t); updatedLib = true; } });
+        if (updatedLib) { globalTags.sort(); activeStorage.set({ global_tags: globalTags }); }
+        
+        problemMetadata[metaKey] = { tags: mergedTags };
+        activeStorage.set({ problem_metadata: problemMetadata });
+      }
       nEl.value = '';
       detectedDetails = null;
       await saveProblems();
@@ -991,7 +1636,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const probNameInput = document.getElementById('new-problem-name');
   if(probNameInput) probNameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addProblem(); });
-  const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
+  const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'analytics') showProblemAnalytics(p.name, p.number); else if (action === 'toggle-tags') p.showTags = !p.showTags; else if (action === 'open-tag-modal') openTagModal('active', i); else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
   
   const importBtn = document.getElementById('import-btn'); 
   if(importBtn) {
@@ -1106,6 +1751,94 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   const addStatusBtn = document.getElementById('add-status');
+  const addTagBtn = document.getElementById('add-tag-btn');
+  const newTagNameInput = document.getElementById('new-tag-name');
+
+  if (addTagBtn && newTagNameInput) {
+    const list = document.getElementById('settings-tag-autocomplete');
+    
+    const filterSettingsTags = () => {
+      const val = newTagNameInput.value.toLowerCase().trim();
+      list.replaceChildren();
+      tagAutocompleteIdx = -1;
+      
+      let matches = [];
+      if (!val) {
+        matches = globalTags.slice(0, 15);
+      } else {
+        matches = globalTags.filter(t => t.toLowerCase().includes(val)).slice(0, 10);
+      }
+      
+      if (matches.length > 0) {
+        matches.forEach((m, i) => {
+          const opt = document.createElement('div');
+          opt.className = 'dropdown-option';
+          opt.textContent = m;
+          opt.onclick = () => {
+            newTagNameInput.value = m;
+            list.classList.remove('show');
+            newTagNameInput.focus();
+          };
+          opt.onmouseenter = () => {
+            tagAutocompleteIdx = i;
+            updateAutocompleteHighlight(list);
+          };
+          list.appendChild(opt);
+        });
+        list.classList.add('show');
+      } else {
+        list.classList.remove('show');
+      }
+    };
+
+    const addTag = async () => {
+      const name = newTagNameInput.value.trim();
+      if (!name) return;
+      
+      // Case-insensitive duplicate check
+      const exists = globalTags.some(t => t.toLowerCase() === name.toLowerCase());
+      
+      if (!exists) {
+        globalTags.push(name);
+        globalTags.sort();
+        newTagNameInput.value = '';
+        list.classList.remove('show');
+        await saveSettingsTags();
+        renderSettingsTags();
+      } else {
+        // Highlight it or just clear
+        newTagNameInput.value = '';
+        list.classList.remove('show');
+      }
+    };
+
+    addTagBtn.addEventListener('click', addTag);
+    newTagNameInput.addEventListener('keydown', (e) => { 
+      const options = list.querySelectorAll('.dropdown-option');
+      if (e.key === 'ArrowDown' && list.classList.contains('show')) {
+        e.preventDefault();
+        tagAutocompleteIdx = Math.min(tagAutocompleteIdx + 1, options.length - 1);
+        updateAutocompleteHighlight(list);
+      } else if (e.key === 'ArrowUp' && list.classList.contains('show')) {
+        e.preventDefault();
+        tagAutocompleteIdx = Math.max(tagAutocompleteIdx - 1, 0);
+        updateAutocompleteHighlight(list);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (tagAutocompleteIdx >= 0 && options[tagAutocompleteIdx]) {
+          options[tagAutocompleteIdx].click();
+        } else {
+          addTag();
+        }
+      } else if (e.key === 'Escape') {
+        list.classList.remove('show');
+      }
+    });
+    
+    newTagNameInput.addEventListener('input', filterSettingsTags);
+    newTagNameInput.addEventListener('focus', filterSettingsTags);
+  }
+
   const toggleAddStatusBtn = document.getElementById('toggle-add-status');
   const addStatusContainer = document.getElementById('add-status-container');
   const toggleStatusListBtn = document.getElementById('toggle-status-list');
@@ -1124,6 +1857,27 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isHidden = statusList.style.display === 'none';
       statusList.style.display = isHidden ? 'flex' : 'none';
       toggleStatusListBtn.textContent = isHidden ? '✕ HIDE LIST' : 'VIEW LIST';
+    });
+  }
+
+  const toggleAddTagBtn = document.getElementById('toggle-add-tag');
+  const addTagContainer = document.getElementById('add-tag-container');
+  const toggleTagListBtn = document.getElementById('toggle-tag-list');
+  const tagList = document.getElementById('settings-tag-list');
+
+  if (toggleAddTagBtn && addTagContainer) {
+    toggleAddTagBtn.addEventListener('click', () => {
+      const isHidden = addTagContainer.style.display === 'none';
+      addTagContainer.style.display = isHidden ? 'block' : 'none';
+      toggleAddTagBtn.textContent = isHidden ? '✕ CLOSE' : '+ ADD NEW';
+    });
+  }
+
+  if (toggleTagListBtn && tagList) {
+    toggleTagListBtn.addEventListener('click', () => {
+      const isHidden = tagList.style.display === 'none';
+      tagList.style.display = isHidden ? 'flex' : 'none';
+      toggleTagListBtn.textContent = isHidden ? '✕ HIDE LIST' : 'VIEW LIST';
     });
   }
 
@@ -1197,6 +1951,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(() => e.target.textContent = ot, 1500);
         });
       }
+    } else if (action === 'history-analytics') {
+      showProblemAnalytics(entry.name, entry.number);
+    } else if (action === 'toggle-history-tags') {
+      entry.showTags = !entry.showTags;
+      await saveHistory();
+      filterHistory();
+    } else if (action === 'open-history-tag-modal') {
+      openTagModal('history', idx);
     } else if (action === 'toggle-history-notes') {
       const nSection = document.getElementById(`history-notes-section-${idx}`);
       if (nSection) {
@@ -1234,4 +1996,66 @@ document.addEventListener('DOMContentLoaded', async () => {
       if(f) f.click();
     }, 500);
   }
+
+  // Analytics Modal Close
+  const closeAna = document.getElementById('close-analytics');
+  if (closeAna) {
+    closeAna.addEventListener('click', () => {
+      document.getElementById('analytics-modal').classList.remove('show');
+    });
+  }
+
+  // Tag Modal Listeners
+  const closeTag = document.getElementById('close-tag-modal');
+  if (closeTag) closeTag.addEventListener('click', () => document.getElementById('tag-modal').classList.remove('show'));
+  
+  const tagInput = document.getElementById('tag-autocomplete-input');
+  if (tagInput) {
+    tagInput.addEventListener('input', filterTagAutocomplete);
+    tagInput.addEventListener('focus', filterTagAutocomplete);
+    tagInput.addEventListener('click', filterTagAutocomplete);
+    tagInput.addEventListener('keydown', (e) => {
+      const list = document.getElementById('tag-autocomplete-list');
+      const options = list.querySelectorAll('.dropdown-option');
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        tagAutocompleteIdx = Math.min(tagAutocompleteIdx + 1, options.length - 1);
+        updateAutocompleteHighlight(list);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        tagAutocompleteIdx = Math.max(tagAutocompleteIdx - 1, 0);
+        updateAutocompleteHighlight(list);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (tagAutocompleteIdx >= 0 && options[tagAutocompleteIdx]) {
+          options[tagAutocompleteIdx].click();
+        }
+      } else if (e.key === 'Tab' && options.length > 0) {
+        e.preventDefault();
+        tagAutocompleteIdx = (tagAutocompleteIdx + 1) % options.length;
+        updateAutocompleteHighlight(list);
+      } else if (e.key === 'Escape') {
+        list.classList.remove('show');
+      }
+    });
+  }
+
+  window.addEventListener('click', (e) => {
+    const anaModal = document.getElementById('analytics-modal');
+    const tagModal = document.getElementById('tag-modal');
+    if (e.target === anaModal) anaModal.classList.remove('show');
+    if (e.target === tagModal) tagModal.classList.remove('show');
+    
+    if (e.target !== tagInput) {
+      const list = document.getElementById('tag-autocomplete-list');
+      if (list) list.classList.remove('show');
+    }
+    
+    const settingsTagInput = document.getElementById('new-tag-name');
+    if (e.target !== settingsTagInput) {
+      const list = document.getElementById('settings-tag-autocomplete');
+      if (list) list.classList.remove('show');
+    }
   });
+});

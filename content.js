@@ -66,11 +66,29 @@ function getLeetCodeDetails() {
     else if (hard) difficulty = "Hard";
   }
 
+  // Tags detection
+  let tags = [];
+  try {
+    const tagEls = document.querySelectorAll('a[href^="/tag/"]');
+    if (tagEls && tagEls.length > 0) {
+      tags = Array.from(tagEls).map(el => el.innerText.trim()).filter(t => t !== "");
+    } else {
+      // Alternative: check data-key="topic-tags"
+      const container = document.querySelector('div[data-key="topic-tags"]');
+      if (container) {
+        tags = Array.from(container.querySelectorAll('a')).map(el => el.innerText.trim()).filter(t => t !== "");
+      }
+    }
+  } catch (e) {
+    console.error("Green Timer: Tag detection error", e);
+  }
+
   return {
     number: number,
     name: name,
     difficulty: difficulty,
-    url: window.location.href.split('?')[0].split('#')[0]
+    url: window.location.href.split('?')[0].split('#')[0],
+    tags: tags
   };
 }
 

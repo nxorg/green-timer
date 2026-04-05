@@ -124,6 +124,14 @@
         <div class="chart-container" style="height: 100px;"><canvas id="monthProgressChart"></canvas></div>
       </div>
 
+      <!-- TAGS: Distribution -->
+      <div class="chart-section" id="tag-distribution-section">
+        <div class="chart-label">Tag Distribution</div>
+        <div id="tag-stats-list" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
+          <!-- Tag counts will be rendered here -->
+        </div>
+      </div>
+
       <!-- YEAR: Heatmap -->
       <div id="heatmap-section">
         <div class="chart-label" style="display: flex; justify-content: space-between; align-items: center;">
@@ -146,17 +154,18 @@
     <div id="log" class="tab-content">
       <div id="history-filter-container" style="display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 5px;">
         <input type="text" id="history-search" placeholder="Search history..." style="font-size: 0.8em; padding: 8px; width: 100%;">
+        <div id="history-tag-filter-container"></div>
+        <div id="active-tag-filters" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;"></div>
         <select id="history-status-filter" style="display: none;">
           <option value="">All Statuses</option>
         </select>
       </div>
       <div id="log-list" style="flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px;"></div>
       
-      <div style="margin-top: 10px; padding: 10px; border-top: 1px solid var(--border-color); text-align: center;">
-        <span style="font-size: 0.7em; opacity: 0.6;">Need to Export or Restore?</span>
-        <a href="#" id="go-to-settings-link" style="font-size: 0.7em; color: var(--green); text-decoration: underline; font-weight: bold; margin-left: 5px;">Go to Settings</a>
-      </div>
-    </div>
+      <div style="margin-top: 5px; padding: 5px; border-top: 1px solid var(--border-color); text-align: center;">
+        <span style="font-size: 0.6em; opacity: 0.6;">Need to Export or Restore?</span>
+        <a href="#" id="go-to-settings-link" style="font-size: 0.6em; color: var(--green); text-decoration: underline; font-weight: bold; margin-left: 5px;">Go to Settings</a>
+      </div>    </div>
 
     <!-- 4. Standalone Stopwatch Section -->
     <div id="standalone-sw" class="tab-content">
@@ -236,7 +245,30 @@
         </div>
       </div>
 
-      <!-- 2. Timer Customization -->
+      <!-- 2. Tag Library Manager (Moved Up) -->
+      <div class="about-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="chart-label">Tag Library Manager</div>
+          <div style="display: flex; gap: 5px;">
+            <button id="toggle-add-tag" class="btn-small" style="padding: 2px 8px;">+ ADD NEW</button>
+            <button id="toggle-tag-list" class="btn-small" style="padding: 2px 8px;">VIEW LIST</button>
+          </div>
+        </div>
+        
+        <div id="add-tag-container" style="display: none; margin-top: 10px; border-bottom: 1px dashed var(--border-color); padding-bottom: 10px; margin-bottom: 10px;">
+          <div class="input-row" style="position: relative;">
+            <input type="text" id="new-tag-name" placeholder="New Tag Name" autocomplete="off" style="flex: 1;">
+            <button id="add-tag-btn" class="btn-small">ADD</button>
+            <div id="settings-tag-autocomplete" class="dropdown-options" style="width: 100%; top: 100%; left: 0; right: 0; max-height: 150px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+        <div id="settings-tag-list" style="display: none; flex-wrap: wrap; gap: 6px; margin-top: 15px; max-height: 200px; overflow-y: auto; padding: 10px; border: 1px solid var(--border-color); background: rgba(0,0,0,0.1);">
+          <!-- Tags will be rendered here -->
+        </div>
+      </div>
+
+      <!-- 3. Timer Customization -->
       <div class="about-card">
         <div class="chart-label">Timer Settings</div>
         <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
@@ -387,6 +419,57 @@
       </div>
     </div>
   </div>
+  <div id="analytics-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="analytics-title">Problem Analytics</h2>
+        <button id="close-analytics" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="ana-avg-speed">-</div>
+            <div class="stat-label">Avg Speed</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="ana-personal-best">-</div>
+            <div class="stat-label">Personal Best</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="ana-total-time">-</div>
+            <div class="stat-label">Total Time</div>
+          </div>
+        </div>
+        <div class="chart-container" style="height: 200px; margin-top: 20px;">
+          <canvas id="ana-trend-chart"></canvas>
+        </div>
+        <div class="timeline-container" style="margin-top: 20px;">
+          <h3 style="font-size: 0.9em; margin-bottom: 10px; border-left: 2px solid var(--green); padding-left: 8px;">Attempt Timeline</h3>
+          <div id="ana-timeline" class="timeline-list"></div>
+        </div>
+        <button id="ana-copy-report" class="btn-small" style="width: 100%; margin-top: 20px; padding: 10px; border-color: var(--green); color: var(--green);">Copy Report (Markdown)</button>
+      </div>
+    </div>
+  </div>
+  <div id="tag-modal" class="modal">
+    <div class="modal-content" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2 id="tag-modal-title">Tag Problem</h2>
+        <button id="close-tag-modal" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="tag-input-container" style="position: relative; margin-bottom: 15px;">
+          <input type="text" id="tag-autocomplete-input" placeholder="Search or add a tag (e.g. Array, DP)..." autocomplete="off">
+          <div id="tag-autocomplete-list" class="dropdown-options" style="width: 100%; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto;"></div>
+        </div>
+        <div id="current-tags-container" style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; min-height: 30px; padding: 10px; border: 1px dashed var(--border-color); background: rgba(0,0,0,0.1);"></div>
+        <div style="margin-top: 15px; font-size: 0.65em; opacity: 0.5; font-style: italic;">
+          * Only existing tags from your library can be used to keep data clean. Add new tags in Settings.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

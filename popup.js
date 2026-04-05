@@ -1768,6 +1768,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       let fn = name, fnum = detectedDetails ? detectedDetails.number : "", furl = detectedDetails ? detectedDetails.url : "", fdiff = detectedDetails ? detectedDetails.difficulty : "", ftags = detectedDetails ? detectedDetails.tags : [];
       if (fnum && name.startsWith(fnum + ". ")) fn = name.replace(fnum + ". ", "");
       
+      // STRICT DUPLICATE CHECK: Prevent adding the same problem number twice
+      if (fnum) {
+        const existingIdx = problems.findIndex(p => p.number === fnum);
+        if (existingIdx !== -1) {
+          // Problem already exists, just highlight it or show a quick status
+          const statusEl = document.getElementById('detection-status');
+          if (statusEl) { 
+            statusEl.textContent = `⚠️ Problem #${fnum} is already active!`; 
+            statusEl.style.color = '#ffb800';
+            statusEl.style.display = 'block';
+            setTimeout(() => { if(statusEl.textContent.includes('already active')) statusEl.style.display = 'none'; }, 3000);
+          }
+          nEl.value = '';
+          return;
+        }
+      }
+
       // Centralized Meta: Check if we have tags for this problem already
       const metaKey = fnum || fn;
       const existingMeta = problemMetadata[metaKey] || {};

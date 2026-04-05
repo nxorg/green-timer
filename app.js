@@ -1803,28 +1803,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   initTabs();
   
   // Developer Easter Egg: Click logo 5 times CONSECUTIVELY to show Stress Test button
-  let logoClicks = 0;
-  let lastClickTime = 0;
-  const logoEl = document.querySelector('.brand-box');
-  if (logoEl) {
-    logoEl.style.cursor = 'pointer';
-    logoEl.addEventListener('click', () => {
-      const now = Date.now();
-      if (now - lastClickTime > 1500) logoClicks = 0; // Reset if more than 1.5s between clicks
-      
-      logoClicks++;
-      lastClickTime = now;
-      
-      if (logoClicks === 5) {
-        const btn = document.getElementById('open-test-bench');
-        if (btn) {
-          btn.style.display = 'block';
-          // Optional: Pulse effect to show it's enabled
-          btn.style.animation = 'pulse 1s 2';
+  // Restricted to development mode only
+  const manifest = api.runtime.getManifest();
+  const isDevMode = !('update_url' in manifest); // Simple way to check if it's side-loaded vs store
+
+  if (isDevMode) {
+    let logoClicks = 0;
+    let lastClickTime = 0;
+    const logoEl = document.querySelector('.brand-box');
+    if (logoEl) {
+      logoEl.style.cursor = 'pointer';
+      logoEl.addEventListener('click', () => {
+        const now = Date.now();
+        if (now - lastClickTime > 1500) logoClicks = 0; 
+        
+        logoClicks++;
+        lastClickTime = now;
+        
+        if (logoClicks === 5) {
+          const btn = document.getElementById('open-test-bench');
+          if (btn) {
+            btn.style.display = 'block';
+            btn.style.animation = 'pulse 1s 2';
+          }
+          logoClicks = 0;
         }
-        logoClicks = 0;
-      }
-    });
+      });
+    }
   }
 
   const themeBtn = document.getElementById('theme-toggle'); 

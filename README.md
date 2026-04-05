@@ -19,7 +19,8 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 
 ### 📊 Advanced Analytics
 - **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
-- **Problem-Specific Analytics:** Dedicated deep-dive view for every problem with average speed, personal best, and total time spent.
+- **Problem-Specific Deep-Dive:** Dedicated analytics modal for every problem with trend visualization.
+- **Performance Metrics:** Automatically calculates Average Speed, Personal Best, and Cumulative Time spent per question.
 - **Trend Charts:** Line charts visualizing your solving speed across multiple attempts.
 - **Activity Heatmap:** Yearly contribution heatmap (GitHub-style) to track consistency.
 - **Daily Goals:** Set and track daily problem-solving targets with live progress indicators.
@@ -28,15 +29,16 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 
 ### 🏷️ Smart Tagging System
 - **Auto-Fetching:** Automatically extracts topic tags from LeetCode.
-- **Centralized Tags:** Tags are synchronized across all attempts of the same problem.
-- **Multi-Select Filtering:** Filter history using multiple tags with intuitive removable badges.
+- **Centralized Tags:** Tags are synchronized across all attempts of the same problem via our problem-centric metadata engine.
+- **Multi-Select Filtering:** Filter history using multiple tags with intuitive removable badges and "AND" logic.
 - **Tag Library Manager:** Manage your practice categories in a centralized settings interface.
-- **Practice Insights:** Visualize your most practiced categories through a dynamic tag distribution list.
+- **Practice Insights:** Visualize your most practiced categories through a dynamic tag distribution list with quick-filter capabilities.
 
 ### 📝 Rich History & Notes
+- **Problem-Centric Architecture:** Optimized storage structure that groups attempts under parent problems, ensuring data integrity and lightning-fast retrieval.
 - **Inline Editing:** Edit problem notes directly within the glass-terminal history log.
 - **Markdown Support:** Format your notes/code snippets with Markdown.
-- **Export/Restore:** Robust JSON backup and CSV export for external analysis.
+- **Export/Restore:** Robust JSON backup and CSV export (including tags) for external analysis.
 
 ### 🎨 Premium UI/UX
 - **High Contrast:** Instant switching between Dark (#00ff00) and Light (#008000) modes.

@@ -1299,8 +1299,21 @@ async function handleRestore(text, isCSV = false) {
         if (row && row.length >= 5) {
           const clean = row.map(s => s.replace(/^"|"$/g, '').trim());
           let ts = Date.now() - (i * 1000);
-          if (clean[6]) { const dParsed = new Date(clean[6]).getTime(); if (!isNaN(dParsed)) ts = dParsed; }
-          logs.push({ number: clean[0], name: clean[1], difficulty: clean[2], timeStr: clean[3], notes: clean[4], url: clean[5] || "", timestamp: ts });
+          
+          // Column Mapping: 0:Number, 1:Name, 2:Difficulty, 3:Time, 4:Tags, 5:Notes, 6:URL, 7:ISO_Date
+          const tags = clean[4] ? clean[4].split(';').map(t => t.trim()).filter(t => t !== "") : [];
+          if (clean[7]) { const dParsed = new Date(clean[7]).getTime(); if (!isNaN(dParsed)) ts = dParsed; }
+          
+          logs.push({ 
+            number: clean[0], 
+            name: clean[1], 
+            difficulty: clean[2], 
+            timeStr: clean[3], 
+            tags: tags,
+            notes: clean[5] || "", 
+            url: clean[6] || "", 
+            timestamp: ts 
+          });
         }
       }
       
@@ -1699,12 +1712,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           setTimeout(() => { exportCsv.textContent = originalText; }, 2000);
           return;
         }
-        let csv = 'Number,Name,Difficulty,Time,Notes,URL,ISO_Date,Local_Time\n'; 
-        h.forEach(i => { 
-          const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""'); 
-          csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`; 
-        }); 
-        const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); 
+        let csv = 'Number,Name,Difficulty,Time,Tags,Notes,URL,ISO_Date,Local_Time\n';
+        h.forEach(i => {
+          const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""');
+          const st = (i.tags || []).join('; ').replace(/"/g, '""');
+          csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${st}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`;
+        });        const b = new Blob([csv], { type: 'text/csv' }), u = URL.createObjectURL(b), a = document.createElement('a'); 
         a.href = u; a.download = 'leetcode_study_logs.csv'; 
         document.body.appendChild(a);
         a.click(); 

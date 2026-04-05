@@ -1802,16 +1802,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Setup Listeners
   initTabs();
   
-  // Developer Easter Egg: Click logo 5 times to show Stress Test button
+  // Developer Easter Egg: Click logo 5 times CONSECUTIVELY to show Stress Test button
   let logoClicks = 0;
+  let lastClickTime = 0;
   const logoEl = document.querySelector('.brand-box');
   if (logoEl) {
     logoEl.style.cursor = 'pointer';
     logoEl.addEventListener('click', () => {
+      const now = Date.now();
+      if (now - lastClickTime > 1500) logoClicks = 0; // Reset if more than 1.5s between clicks
+      
       logoClicks++;
+      lastClickTime = now;
+      
       if (logoClicks === 5) {
         const btn = document.getElementById('open-test-bench');
-        if (btn) btn.style.display = 'block';
+        if (btn) {
+          btn.style.display = 'block';
+          // Optional: Pulse effect to show it's enabled
+          btn.style.animation = 'pulse 1s 2';
+        }
         logoClicks = 0;
       }
     });

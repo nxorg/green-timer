@@ -17,22 +17,25 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 - **Multi-Problem Tracking:** Manage multiple active problems with independent stopwatches.
 - **Standalone Timer & SW:** Compact dedicated timer and stopwatch for general use with customizable presets.
 
-### 📈 Advanced Analytics
-- **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
+### 📈 Advanced Analytics & Review
+- **Smart Review Engine:** Integrated spaced repetition logic that automatically schedules problems for re-solving based on your performance (1, 3, or 7 days).
+- **Revisit Dashboard:** A dedicated section in the Problems tab that alerts you when specific questions are due for a review.
 - **Problem-Specific Deep-Dive:** Dedicated analytics modal for every problem with trend visualization.
 - **Performance Metrics:** Automatically calculates Average Speed, Personal Best, and Cumulative Time spent per question.
-- **Trend Charts:** Line charts visualizing your solving speed across multiple attempts.
 - **Activity Heatmap:** Yearly contribution heatmap (GitHub-style) to track consistency.
 - **Daily Goals:** Set and track daily problem-solving targets with live progress indicators.
-- **Deep Insights:** Hourly activity charts, 7-day and 30-day progress reports, and difficulty distribution.
-- **Streaks:** Maintain and visualize your daily coding streaks.
+
+### ⏱️ Intelligent Tracking
+- **On-Page Floating HUD:** A minimalist, draggable timer that injects directly into LeetCode so you can track your progress without leaving the page.
+- **Zen Mode:** Reduce interview anxiety by hiding the ticking numbers and replacing them with a subtle pulsing focus indicator.
+- **LeetCode Auto-Detection:** Automatically captures the problem name and number as you browse.
+- **Multi-Problem Tracking:** Manage multiple active problems with independent stopwatches.
 
 ### 🏷️ Smart Tagging System
 - **Auto-Fetching:** Automatically extracts topic tags from LeetCode.
 - **Centralized Tags:** Tags are synchronized across all attempts of the same problem via our problem-centric metadata engine.
 - **Multi-Select Filtering:** Filter history using multiple tags with intuitive removable badges and "AND" logic.
 - **Tag Library Manager:** Manage your practice categories in a centralized settings interface.
-- **Practice Insights:** Visualize your most practiced categories through a dynamic tag distribution list with quick-filter capabilities.
 
 ### 📝 Rich History & Notes
 - **Problem-Centric Architecture:** Optimized storage structure that groups attempts under parent problems, ensuring data integrity and lightning-fast retrieval.

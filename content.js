@@ -23,14 +23,11 @@ function getLeetCodeDetails() {
   if (!titleEl) return null;
 
   let fullTitle = titleEl.innerText.trim();
-  
-  // Clean up potential extra whitespace or newlines
   fullTitle = fullTitle.replace(/\s+/g, ' ');
 
   let number = "";
   let name = fullTitle;
 
-  // Pattern: "1. Two Sum" or "1 Two Sum" or "#1 Two Sum"
   const match = fullTitle.match(/^#?(\d+)[\.\s]+(.*)/);
   if (match) {
     number = match[1];
@@ -41,23 +38,17 @@ function getLeetCodeDetails() {
     name = parts.slice(1).join('. ');
   }
 
-  // Fallback: If number is still empty, check the document title
   if (!number) {
     const docTitle = document.title;
     const docMatch = docTitle.match(/^#?(\d+)[\.\s]+(.*)/);
-    if (docMatch) {
-      number = docMatch[1];
-      // We keep the name from the page content as it's usually cleaner
-    }
+    if (docMatch) number = docMatch[1];
   }
 
-  // Difficulty detection
   let difficulty = "";
   const diffEl = document.querySelector('div[class*="text-difficulty-"], [class*="difficulty"]');
   if (diffEl) {
     difficulty = diffEl.innerText.trim();
   } else {
-    // Fallback for different UI versions
     const easy = document.querySelector('.text-easy');
     const medium = document.querySelector('.text-medium');
     const hard = document.querySelector('.text-hard');
@@ -66,56 +57,101 @@ function getLeetCodeDetails() {
     else if (hard) difficulty = "Hard";
   }
 
-  // Tags detection
   let tags = [];
   try {
     const tagEls = document.querySelectorAll('a[href^="/tag/"]');
     if (tagEls && tagEls.length > 0) {
       tags = Array.from(tagEls).map(el => el.innerText.trim()).filter(t => t !== "");
     } else {
-      // Alternative: check data-key="topic-tags"
       const container = document.querySelector('div[data-key="topic-tags"]');
-      if (container) {
-        tags = Array.from(container.querySelectorAll('a')).map(el => el.innerText.trim()).filter(t => t !== "");
-      }
+      if (container) tags = Array.from(container.querySelectorAll('a')).map(el => el.innerText.trim()).filter(t => t !== "");
     }
-  } catch (e) {
-    console.error("Green Timer: Tag detection error", e);
-  }
+  } catch (e) { console.error("Green Timer: Tag detection error", e); }
 
-  return {
-    number: number,
-    name: name,
-    difficulty: difficulty,
-    url: window.location.href.split('?')[0].split('#')[0],
-    tags: tags
-  };
+  return { number, name, difficulty, url: window.location.href.split('?')[0].split('#')[0], tags };
+}
+
+// --- Floating HUD ---
+let hudElement = null;
+let hudInterval = null;
+
+function createHUD() {
+  if (hudElement) return;
+  
+  hudElement = document.createElement('div');
+  hudElement.id = 'green-timer-hud';
+  hudElement.style.cssText = `
+    position: fixed; top: 60px; right: 20px;
+    background: rgba(10, 10, 10, 0.9); border: 1px solid #00ff00;
+    color: #00ff00; padding: 8px 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px; font-weight: bold; z-index: 999999;
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.2);
+    cursor: move; user-select: none; display: none; align-items: center; gap: 10px;
+  `;
+
+  const timeSpan = document.createElement('span');
+  timeSpan.id = 'gt-hud-time';
+  timeSpan.textContent = '00:00:00';
+  
+  const statusDot = document.createElement('div');
+  statusDot.style.width = '8px'; statusDot.style.height = '8px';
+  statusDot.style.borderRadius = '50%'; statusDot.style.background = '#00ff00';
+  statusDot.style.boxShadow = '0 0 5px #00ff00';
+
+  hudElement.appendChild(statusDot);
+  hudElement.appendChild(timeSpan);
+  document.body.appendChild(hudElement);
+
+  let isDragging = false, offsetX, offsetY;
+  hudElement.onmousedown = (e) => { isDragging = true; offsetX = e.clientX - hudElement.getBoundingClientRect().left; offsetY = e.clientY - hudElement.getBoundingClientRect().top; };
+  document.onmousemove = (e) => { if (!isDragging) return; hudElement.style.left = (e.clientX - offsetX) + 'px'; hudElement.style.top = (e.clientY - offsetY) + 'px'; hudElement.style.right = 'auto'; };
+  document.onmouseup = () => { isDragging = false; };
+}
+
+function updateHUD() {
+  chrome.storage.local.get(['leetcode_problems', 'app_settings'], (data) => {
+    const settings = data.app_settings || {};
+    const problems = data.leetcode_problems || [];
+    const currentUrl = window.location.href.split('?')[0].split('#')[0];
+    const activeProb = problems.find(p => p.url === currentUrl && p.isRunning);
+    
+    if (activeProb && settings.showHUD !== false) {
+      if (!hudElement) createHUD();
+      hudElement.style.display = 'flex';
+      if (hudInterval) clearInterval(hudInterval);
+      hudInterval = setInterval(() => {
+        const elapsed = Date.now() - activeProb.startTime;
+        const timeEl = document.getElementById('gt-hud-time');
+        if (timeEl) {
+          const s = Math.floor(elapsed / 1000) % 60, m = Math.floor(elapsed / 60000) % 60, h = Math.floor(elapsed / 3600000);
+          timeEl.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+        }
+      }, 1000);
+    } else {
+      if (hudElement) hudElement.style.display = 'none';
+      if (hudInterval) clearInterval(hudInterval);
+    }
+  });
 }
 
 function broadcast() {
   const details = getLeetCodeDetails();
-  if (details) {
-    chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
-  }
+  if (details) chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
 }
 
+// Listen for storage changes
+chrome.storage.onChanged.addListener(() => updateHUD());
+
 // Optimization: Use Observer instead of Interval
-const observer = new MutationObserver(() => {
-  broadcast();
-});
-
-// Start observing the main content area
-const config = { childList: true, subtree: true };
+const observer = new MutationObserver(() => { broadcast(); updateHUD(); });
 const targetNode = document.body;
-if (targetNode) observer.observe(targetNode, config);
+if (targetNode) observer.observe(targetNode, { childList: true, subtree: true });
 
-// Initial broadcast
 broadcast();
+updateHUD();
 
-// Direct listener for popup requests
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === 'get_leetcode_details') {
-    sendResponse(getLeetCodeDetails());
-  }
+  if (msg.type === 'get_leetcode_details') sendResponse(getLeetCodeDetails());
   return true;
 });

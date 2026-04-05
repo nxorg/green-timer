@@ -566,7 +566,8 @@ let appSettings = {
   autoStart: false,
   dailyGoal: 3,
   startupView: 'last', // 'last' or 'stopwatch'
-  zenMode: false
+  zenMode: false,
+  showHUD: true
 };
 
 const DEFAULT_STATUSES = [
@@ -829,6 +830,18 @@ function renderSettings() {
         saveSettings();
       });
       zenModeInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const showHudInp = document.getElementById('setting-show-hud');
+  if (showHudInp) {
+    showHudInp.checked = appSettings.showHUD !== false;
+    if (!showHudInp.dataset.listenerAdded) {
+      showHudInp.addEventListener('change', (e) => {
+        appSettings.showHUD = e.target.checked;
+        saveSettings();
+      });
+      showHudInp.dataset.listenerAdded = "true";
     }
   }
   
@@ -2240,6 +2253,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveSettings();
       });
       zenModeInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const showHudInp = document.getElementById('setting-show-hud');
+  if (showHudInp) {
+    showHudInp.checked = appSettings.showHUD !== false;
+    if (!showHudInp.dataset.listenerAdded) {
+      showHudInp.addEventListener('change', (e) => {
+        appSettings.showHUD = e.target.checked;
+        saveSettings();
+      });
+      showHudInp.dataset.listenerAdded = "true";
     }
   }
   

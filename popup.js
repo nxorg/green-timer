@@ -274,7 +274,7 @@ function initTabs() {
 
 async function restoreLastTab() {
   const data = await activeStorage.get('last_tab');
-  const lastTab = data.last_tab || 'stopwatch';
+  const lastTab = (appSettings.startupView === 'stopwatch') ? 'stopwatch' : (data.last_tab || 'stopwatch');
   const targetBtn = document.querySelector(`.tab-btn[data-tab="${lastTab}"]`);
   if (targetBtn) targetBtn.click();
 }
@@ -541,7 +541,8 @@ let appSettings = {
   soundEnabled: true,
   autoAdd: false,
   autoStart: false,
-  dailyGoal: 3
+  dailyGoal: 3,
+  startupView: 'last' // 'last' or 'stopwatch'
 };
 
 const DEFAULT_STATUSES = [
@@ -752,7 +753,29 @@ function renderSettings() {
   if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
-  if (dailyGoalInp) dailyGoalInp.value = appSettings.dailyGoal;
+  if (dailyGoalInp) {
+    dailyGoalInp.value = appSettings.dailyGoal;
+    if (!dailyGoalInp.dataset.listenerAdded) {
+      dailyGoalInp.addEventListener('change', (e) => { 
+        appSettings.dailyGoal = parseInt(e.target.value) || 3; 
+        saveSettings(); 
+        if (document.getElementById('stats').classList.contains('active')) renderStats(); 
+      });
+      dailyGoalInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const startupViewInp = document.getElementById('setting-startup-view');
+  if (startupViewInp) {
+    startupViewInp.value = appSettings.startupView || 'last';
+    if (!startupViewInp.dataset.listenerAdded) {
+      startupViewInp.addEventListener('change', (e) => {
+        appSettings.startupView = e.target.value;
+        saveSettings();
+      });
+      startupViewInp.dataset.listenerAdded = "true";
+    }
+  }
 }
 
 function renderProblems() {
@@ -1923,7 +1946,29 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
-  if (dailyGoalInp) dailyGoalInp.value = appSettings.dailyGoal;
+  if (dailyGoalInp) {
+    dailyGoalInp.value = appSettings.dailyGoal;
+    if (!dailyGoalInp.dataset.listenerAdded) {
+      dailyGoalInp.addEventListener('change', (e) => { 
+        appSettings.dailyGoal = parseInt(e.target.value) || 3; 
+        saveSettings(); 
+        if (document.getElementById('stats').classList.contains('active')) renderStats(); 
+      });
+      dailyGoalInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const startupViewInp = document.getElementById('setting-startup-view');
+  if (startupViewInp) {
+    startupViewInp.value = appSettings.startupView || 'last';
+    if (!startupViewInp.dataset.listenerAdded) {
+      startupViewInp.addEventListener('change', (e) => {
+        appSettings.startupView = e.target.value;
+        saveSettings();
+      });
+      startupViewInp.dataset.listenerAdded = "true";
+    }
+  }
 
   const factoryResetBtn = document.getElementById('factory-reset');
   if (factoryResetBtn) factoryResetBtn.addEventListener('click', async () => {

@@ -8,7 +8,7 @@
 
 
   "description": "A sleek #00ff00 themed productivity hub for LeetCode. Features auto-detection, multi-timer tracking, customizable statuses, and deep visual analytics.",
-  "permissions": ["notifications", "alarms", "storage", "activeTab", "scripting"],
+  "permissions": ["notifications", "alarms", "storage", "activeTab", "scripting", "unlimitedStorage"],
   "host_permissions": ["*://*.leetcode.com/*"],
 
   "background": {

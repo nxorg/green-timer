@@ -1286,7 +1286,7 @@ function renderActiveTagFilters() {
   });
 }
 
-function filterHistory() {
+function filterHistory(limit = 50) {
   const l = document.getElementById('log-list'); if(!l) return;
   renderActiveTagFilters();
   const sEl = document.getElementById('history-search');
@@ -1305,8 +1305,10 @@ function filterHistory() {
     
     return matchesQuery && matchesStatus && matchesTags;
   });
+  
   l.replaceChildren();
   if (filtered.length === 0) { const msg = document.createElement('div'); msg.style.opacity = '0.5'; msg.style.padding = '10px'; msg.textContent = 'No results found.'; l.appendChild(msg); return; }
+  
   const totalMs = filtered.reduce((s, i) => s + (i.elapsedMs || 0), 0);
   const summary = document.createElement('div'); summary.className = 'log-entry'; summary.style.padding = '8px'; summary.style.borderStyle = 'solid';
   summary.style.display = 'flex'; summary.style.justifyContent = 'space-between'; summary.style.fontSize = '0.8em';
@@ -1327,7 +1329,10 @@ function filterHistory() {
   summary.appendChild(totalTimeSpan);
   l.appendChild(summary);
 
-  filtered.forEach((i, idx) => {
+  const fragment = document.createDocumentFragment();
+  const toRender = filtered.slice(0, limit);
+
+  toRender.forEach((i, idx) => {
     const fullDn = (i.number ? i.number + ". " : "") + i.name;
     let dn = fullDn; if (dn.length > 50) dn = dn.substring(0, 47) + "...";
     const dd = (val) => { const date = new Date(val); if (isNaN(date.getTime())) return "Unknown"; const now = new Date(); if (getDateKey(date) === getDateKey(now)) return "Today " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); return date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); };
@@ -1407,7 +1412,7 @@ function filterHistory() {
         if (sub) {
           sub.status = val;
           await saveHistory();
-          filterHistory(); 
+          filterHistory(limit); 
         }
       }
     });
@@ -1453,8 +1458,21 @@ function filterHistory() {
       }
     });
     
-    notesSection.appendChild(notesArea); entry.appendChild(notesSection); l.appendChild(entry);
+    notesSection.appendChild(notesArea); entry.appendChild(notesSection); 
+    fragment.appendChild(entry);
   });
+
+  l.appendChild(fragment);
+
+  if (filtered.length > limit) {
+    const moreBtn = document.createElement('button');
+    moreBtn.className = 'btn-small';
+    moreBtn.style.width = '100%';
+    moreBtn.style.margin = '10px 0';
+    moreBtn.textContent = `LOAD MORE (${filtered.length - limit} REMAINING)`;
+    moreBtn.onclick = () => filterHistory(limit + 100);
+    l.appendChild(moreBtn);
+  }
 }
 
 // --- JSON/CSV Restore ---

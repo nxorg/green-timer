@@ -70,50 +70,71 @@ async function showProblemAnalytics(problemName, problemNumber) {
   // Timeline
   const timeline = document.getElementById('ana-timeline');
   timeline.replaceChildren();
-  [...attempts].reverse().forEach(a => {
-    const item = document.createElement('div');
-    item.className = 'timeline-item';
+  
+  const renderAttempts = (list, limit = 30) => {
+    const fragment = document.createDocumentFragment();
+    const toRender = list.slice(0, limit);
     
-    const date = document.createElement('div');
-    date.className = 'timeline-date';
-    date.textContent = new Date(a.timestamp).toLocaleString();
-    
-    const statusRow = document.createElement('div');
-    statusRow.style.display = 'flex';
-    statusRow.style.alignItems = 'center';
-    statusRow.style.gap = '8px';
-    statusRow.style.marginBottom = '4px';
+    toRender.forEach(a => {
+      const item = document.createElement('div');
+      item.className = 'timeline-item';
+      
+      const date = document.createElement('div');
+      date.className = 'timeline-date';
+      date.textContent = new Date(a.timestamp).toLocaleString();
+      
+      const statusRow = document.createElement('div');
+      statusRow.style.display = 'flex';
+      statusRow.style.alignItems = 'center';
+      statusRow.style.gap = '8px';
+      statusRow.style.marginBottom = '4px';
 
-    const statusColor = getStatusColor(a.status);
-    const statusBadge = document.createElement('span');
-    statusBadge.className = 'tag-badge';
-    statusBadge.style.backgroundColor = statusColor.startsWith('var(') ? 'var(--green)' : statusColor;
-    statusBadge.style.borderColor = 'transparent';
-    statusBadge.style.color = '#000000'; // Dark text for high visibility on green/colored backgrounds
-    statusBadge.style.fontSize = '0.55em';
-    statusBadge.style.padding = '1px 4px';
-    statusBadge.textContent = a.status;
+      const statusColor = getStatusColor(a.status);
+      const statusBadge = document.createElement('span');
+      statusBadge.className = 'tag-badge';
+      statusBadge.style.backgroundColor = statusColor.startsWith('var(') ? 'var(--green)' : statusColor;
+      statusBadge.style.borderColor = 'transparent';
+      statusBadge.style.color = '#000000';
+      statusBadge.style.fontSize = '0.55em';
+      statusBadge.style.padding = '1px 4px';
+      statusBadge.textContent = a.status;
 
-    const time = document.createElement('div');
-    time.className = 'timeline-time';
-    time.style.margin = '0';
-    time.textContent = a.timeStr;
-    
-    statusRow.appendChild(statusBadge);
-    statusRow.appendChild(time);
+      const time = document.createElement('div');
+      time.className = 'timeline-time';
+      time.style.margin = '0';
+      time.textContent = a.timeStr;
+      
+      statusRow.appendChild(statusBadge);
+      statusRow.appendChild(time);
+      item.appendChild(date);
+      item.appendChild(statusRow);
+      
+      if (a.notes) {
+        const notes = document.createElement('div');
+        notes.className = 'timeline-notes';
+        notes.textContent = a.notes;
+        item.appendChild(notes);
+      }
+      fragment.appendChild(item);
+    });
 
-    item.appendChild(date);
-    item.appendChild(statusRow);
-    
-    if (a.notes) {
-      const notes = document.createElement('div');
-      notes.className = 'timeline-notes';
-      notes.textContent = a.notes;
-      item.appendChild(notes);
+    timeline.appendChild(fragment);
+
+    if (list.length > limit) {
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'btn-small';
+      moreBtn.style.width = '100%';
+      moreBtn.style.marginTop = '10px';
+      moreBtn.textContent = `SHOW ALL (${list.length - limit} MORE)`;
+      moreBtn.onclick = () => {
+        moreBtn.remove();
+        renderAttempts(list.slice(limit), list.length);
+      };
+      timeline.appendChild(moreBtn);
     }
-    
-    timeline.appendChild(item);
-  });
+  };
+
+  renderAttempts([...attempts].reverse());
 
   // Chart
   const ctx = document.getElementById('ana-trend-chart').getContext('2d');
@@ -124,8 +145,10 @@ async function showProblemAnalytics(problemName, problemNumber) {
   const textColor = isLight ? '#333333' : '#ffffff';
   const gridColor = isLight ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.05)';
 
-  const labels = attempts.map((_, i) => `Attempt ${i + 1}`);
-  const data = attempts.map(a => (a.elapsedMs || 0) / 60000); // Minutes
+  // Chart Optimization: Limit to last 100 points for performance
+  const chartAttempts = attempts.slice(-100); 
+  const labels = chartAttempts.map((_, i) => `Attempt ${attempts.length - chartAttempts.length + i + 1}`);
+  const data = chartAttempts.map(a => (a.elapsedMs || 0) / 60000);
 
   anaChart = new Chart(ctx, {
     type: 'line',
@@ -1092,24 +1115,22 @@ let currentHistory = []; // Now stores nested Problem objects: { name, number, .
 
 function migrateHistory(flat) {
   if (!Array.isArray(flat)) return [];
-  if (flat.length > 0 && flat[0].submissions) return flat; // Already nested
+  if (flat.length > 0 && flat[0].submissions) return flat; 
   
-  const nested = [];
+  const probMap = new Map();
   flat.forEach(item => {
     const key = item.number || item.name;
-    let prob = nested.find(p => (p.number || p.name) === key);
-    if (!prob) {
-      prob = {
+    if (!probMap.has(key)) {
+      probMap.set(key, {
         name: item.name,
         number: item.number,
         url: item.url,
         difficulty: item.difficulty,
         tags: item.tags || [],
         submissions: []
-      };
-      nested.push(prob);
+      });
     }
-    prob.submissions.push({
+    probMap.get(key).submissions.push({
       status: item.status,
       timeStr: item.timeStr,
       elapsedMs: item.elapsedMs,
@@ -1117,15 +1138,17 @@ function migrateHistory(flat) {
       notes: item.notes || ""
     });
   });
-  // Sort problems by their most recent submission
-  return nested.sort((a, b) => {
+  
+  return Array.from(probMap.values()).sort((a, b) => {
     const lastA = Math.max(...a.submissions.map(s => s.timestamp));
     const lastB = Math.max(...b.submissions.map(s => s.timestamp));
     return lastB - lastA;
   });
 }
 
+let cachedFlatHistory = null;
 function getFlatHistory() {
+  if (cachedFlatHistory) return cachedFlatHistory;
   const flat = [];
   currentHistory.forEach(p => {
     p.submissions.forEach(s => {
@@ -1136,10 +1159,12 @@ function getFlatHistory() {
       });
     });
   });
-  return flat.sort((a, b) => b.timestamp - a.timestamp);
+  cachedFlatHistory = flat.sort((a, b) => b.timestamp - a.timestamp);
+  return cachedFlatHistory;
 }
 
 async function logToHistory(prob, elapsed) {
+  cachedFlatHistory = null; // Invalidate cache
   const d = await activeStorage.get('leetcode_history');
   let h = migrateHistory(d.leetcode_history || []);
   
@@ -1180,7 +1205,10 @@ function formatMarkdown(text) {
   safe = safe.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/`(.*?)`/g, '<code style="background:rgba(0,255,0,0.1); padding:1px 3px; border:1px solid rgba(0,255,0,0.3);">$1</code>').replace(/\n/g, '<br>');
   return safe;
 }
-async function saveHistory() { await activeStorage.set({ leetcode_history: currentHistory }); }
+async function saveHistory() { 
+  cachedFlatHistory = null;
+  await activeStorage.set({ leetcode_history: currentHistory }); 
+}
 
 async function renderHistory() { 
   const l = document.getElementById('log-list'), d = await activeStorage.get(['leetcode_history', 'problem_statuses', 'problem_status_colors']); 
@@ -2240,7 +2268,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 3. Final Init
-  await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); await renderHistory(); await restoreLastTab();
+  await initTheme(); await loadProblems(); await initTimers(); requestLeetCodeTitle(); 
+  
+  // Defer History render unless it's the startup tab
+  const lastTabData = await activeStorage.get('last_tab');
+  const startTab = (appSettings.startupView === 'stopwatch') ? 'stopwatch' : (lastTabData.last_tab || 'stopwatch');
+  if (startTab === 'log') await renderHistory();
+  
+  await restoreLastTab();
 
   document.addEventListener('click', () => {
     document.querySelectorAll('.dropdown-options.show').forEach(m => m.classList.remove('show'));

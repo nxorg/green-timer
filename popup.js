@@ -1801,6 +1801,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 2. Setup Listeners
   initTabs();
+  
+  // Developer Easter Egg: Click logo 5 times to show Stress Test button
+  let logoClicks = 0;
+  const logoEl = document.querySelector('.brand-box');
+  if (logoEl) {
+    logoEl.style.cursor = 'pointer';
+    logoEl.addEventListener('click', () => {
+      logoClicks++;
+      if (logoClicks === 5) {
+        const btn = document.getElementById('open-test-bench');
+        if (btn) btn.style.display = 'block';
+        logoClicks = 0;
+      }
+    });
+  }
+
   const themeBtn = document.getElementById('theme-toggle'); 
   if(themeBtn) themeBtn.addEventListener('click', async () => { 
     document.body.classList.toggle('light-mode'); 
@@ -1815,7 +1831,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); 
     window.close(); // Close the popup after opening the full page
   });
-  const historySearch = document.getElementById('history-search'); if(historySearch) historySearch.addEventListener('input', filterHistory);
+
+  // Debounced Search for large datasets
+  let searchTimeout;
+  const historySearch = document.getElementById('history-search'); 
+  if(historySearch) {
+    historySearch.addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => filterHistory(), 300);
+    });
+  }
   
   const toggleHistFilters = document.getElementById('toggle-history-filters');
   const histFiltersExpanded = document.getElementById('history-filters-expanded');

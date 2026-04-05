@@ -847,6 +847,18 @@ function renderSettings() {
       showHudInp.dataset.listenerAdded = "true";
     }
   }
+
+  const resetHudBtn = document.getElementById('reset-hud-pos');
+  if (resetHudBtn) {
+    if (!resetHudBtn.dataset.listenerAdded) {
+      resetHudBtn.addEventListener('click', () => {
+        delete appSettings.hudPos;
+        saveSettings();
+        alert("HUD position reset to default.");
+      });
+      resetHudBtn.dataset.listenerAdded = "true";
+    }
+  }
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
   if (dailyGoalInp) {
@@ -2268,6 +2280,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         saveSettings();
       });
       showHudInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const resetHudBtn = document.getElementById('reset-hud-pos');
+  if (resetHudBtn) {
+    if (!resetHudBtn.dataset.listenerAdded) {
+      resetHudBtn.addEventListener('click', () => {
+        delete appSettings.hudPos;
+        saveSettings();
+        alert("HUD position reset to default.");
+      });
+      resetHudBtn.dataset.listenerAdded = "true";
     }
   }
   

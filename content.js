@@ -106,7 +106,18 @@ function createHUD() {
   let isDragging = false, offsetX, offsetY;
   hudElement.onmousedown = (e) => { isDragging = true; offsetX = e.clientX - hudElement.getBoundingClientRect().left; offsetY = e.clientY - hudElement.getBoundingClientRect().top; };
   document.onmousemove = (e) => { if (!isDragging) return; hudElement.style.left = (e.clientX - offsetX) + 'px'; hudElement.style.top = (e.clientY - offsetY) + 'px'; hudElement.style.right = 'auto'; };
-  document.onmouseup = () => { isDragging = false; };
+  document.onmouseup = () => { 
+    if (isDragging) {
+      isDragging = false;
+      // Save position
+      const pos = { top: hudElement.style.top, left: hudElement.style.left };
+      chrome.storage.local.get('app_settings', (d) => {
+        const s = d.app_settings || {};
+        s.hudPos = pos;
+        chrome.storage.local.set({ app_settings: s });
+      });
+    }
+  };
 }
 
 function updateHUD() {
@@ -118,6 +129,14 @@ function updateHUD() {
     
     if (activeProb && settings.showHUD !== false) {
       if (!hudElement) createHUD();
+      
+      // Apply saved position if exists
+      if (settings.hudPos) {
+        hudElement.style.top = settings.hudPos.top;
+        hudElement.style.left = settings.hudPos.left;
+        hudElement.style.right = 'auto';
+      }
+
       hudElement.style.display = 'flex';
       if (hudInterval) clearInterval(hudInterval);
       hudInterval = setInterval(() => {

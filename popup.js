@@ -5,6 +5,7 @@
  */
 
 const api = (typeof browser !== 'undefined') ? browser : chrome;
+const ANALYTICS_SVG = `<svg viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M3 3v18h18"></path><path d="M18 9l-5 5-4-4-3 3"></path></svg>`;
 const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
 const activeStorage = {
@@ -779,7 +780,7 @@ function renderProblems() {
     const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
     tagBtn.textContent = p.showTags ? 'HIDE TAGS' : 'TAGS'; 
     tagBtn.dataset.index = i; tagBtn.dataset.action = 'toggle-tags';
-    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = i; anaBtn.dataset.action = 'analytics';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.innerHTML = ANALYTICS_SVG; anaBtn.title = 'Analytics'; anaBtn.dataset.index = i; anaBtn.dataset.action = 'analytics';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
     
     actionButtons.appendChild(tagBtn);
@@ -1277,7 +1278,7 @@ function filterHistory() {
     const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
     tagBtn.textContent = i.showTags ? 'HIDE TAGS' : 'TAGS'; 
     tagBtn.dataset.index = idx; tagBtn.dataset.action = 'toggle-history-tags';
-    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.textContent = '📊'; anaBtn.title = 'Analytics'; anaBtn.dataset.index = idx; anaBtn.dataset.action = 'history-analytics';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.innerHTML = ANALYTICS_SVG; anaBtn.title = 'Analytics'; anaBtn.dataset.index = idx; anaBtn.dataset.action = 'history-analytics';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'CPY'; copyBtn.dataset.index = idx; copyBtn.dataset.action = 'copy-history-note';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = idx; delBtn.dataset.action = 'delete-history';
     

@@ -17,7 +17,7 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 - **Multi-Problem Tracking:** Manage multiple active problems with independent stopwatches.
 - **Standalone Timer & SW:** Compact dedicated timer and stopwatch for general use with customizable presets.
 
-### 📊 Advanced Analytics
+### 📈 Advanced Analytics
 - **Visual Dashboard:** Full-screen responsive dashboard for desktop and mobile.
 - **Problem-Specific Deep-Dive:** Dedicated analytics modal for every problem with trend visualization.
 - **Performance Metrics:** Automatically calculates Average Speed, Personal Best, and Cumulative Time spent per question.

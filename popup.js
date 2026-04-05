@@ -636,10 +636,26 @@ function startStandaloneSwUI() {
 }
 
 function injectAnalyticsIcon(parent) {
-  const parser = new DOMParser();
-  const svgDoc = parser.parseFromString(ANALYTICS_SVG, 'image/svg+xml');
-  const svgElement = svgDoc.documentElement;
-  parent.appendChild(svgElement);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "13");
+  svg.setAttribute("height", "13");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2.5");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.style.verticalAlign = "middle";
+  svg.style.pointerEvents = "none"; // Ensure clicks pass through to the button
+  
+  const path1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path1.setAttribute("d", "M3 3v18h18");
+  const path2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path2.setAttribute("d", "M18 9l-5 5-4-4-3 3");
+  
+  svg.appendChild(path1);
+  svg.appendChild(path2);
+  parent.appendChild(svg);
 }
 
 // --- Problems ---
@@ -1864,7 +1880,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   const probNameInput = document.getElementById('new-problem-name');
   if(probNameInput) probNameInput.addEventListener('keydown', (e) => { if(e.key === 'Enter') addProblem(); });
-  const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { const action = e.target.dataset.action, i = parseInt(e.target.dataset.index); if (action === undefined || isNaN(i)) return; const p = problems[i]; if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } else if (action === 'delete') problems.splice(i, 1); else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } else if (action === 'analytics') showProblemAnalytics(p.name, p.number); else if (action === 'toggle-tags') p.showTags = !p.showTags; else if (action === 'open-tag-modal') openTagModal('active', i); else if (action === 'toggle-notes') p.showNotes = !p.showNotes; await saveProblems(); renderProblems(); if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } startUIInterval(); });
+  const probCont = document.getElementById('problems-container'); if(probCont) probCont.addEventListener('click', async (e) => { 
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action, i = parseInt(btn.dataset.index); 
+    if (action === undefined || isNaN(i)) return; 
+    const p = problems[i]; 
+    if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } 
+    else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } 
+    else if (action === 'delete') problems.splice(i, 1); 
+    else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } 
+    else if (action === 'analytics') showProblemAnalytics(p.name, p.number); 
+    else if (action === 'toggle-tags') p.showTags = !p.showTags; 
+    else if (action === 'open-tag-modal') openTagModal('active', i); 
+    else if (action === 'toggle-notes') p.showNotes = !p.showNotes; 
+    await saveProblems(); 
+    renderProblems(); 
+    if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } 
+    startUIInterval(); 
+  });
   
   const importBtn = document.getElementById('import-btn'); 
   if(importBtn) {
@@ -2191,11 +2225,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   const clearLog = document.getElementById('clear-log'); if(clearLog) clearLog.addEventListener('click', async () => { if (confirm('Clear history?')) { await activeStorage.set({ leetcode_history: [] }); renderHistory(); if (document.getElementById('stats').classList.contains('active')) renderStats(); } });
 
   const logList = document.getElementById('log-list'); if(logList) logList.addEventListener('click', async (e) => {
-    const action = e.target.dataset.action, idx = parseInt(e.target.dataset.index);
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action, idx = parseInt(btn.dataset.index);
     if (!action || isNaN(idx)) return;
     
     // The index refers to the 'filtered' list in filterHistory()
-    // We need to find the specific submission in the master data
     const sEl = document.getElementById('history-search');
     const query = sEl ? sEl.value.toLowerCase() : "";
     const filterStatus = currentHistoryFilterStatus;
@@ -2217,7 +2252,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const masterProb = currentHistory.find(p => (p.number || p.name) === (entry.number || entry.name));
         if (masterProb) {
           masterProb.submissions = masterProb.submissions.filter(s => s.timestamp !== entry.timestamp);
-          // If no submissions left, remove the problem entirely
           if (masterProb.submissions.length === 0) {
             currentHistory = currentHistory.filter(p => (p.number || p.name) !== (entry.number || entry.name));
           }
@@ -2228,14 +2262,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (action === 'copy-history-note') {
       if (entry.notes) {
         navigator.clipboard.writeText(entry.notes).then(() => {
-          const ot = e.target.textContent; e.target.textContent = 'COPIED!';
-          setTimeout(() => e.target.textContent = ot, 1500);
+          const ot = btn.textContent; btn.textContent = 'COPIED!';
+          setTimeout(() => btn.textContent = ot, 1500);
         });
       }
     } else if (action === 'history-analytics') {
       showProblemAnalytics(entry.name, entry.number);
     } else if (action === 'toggle-history-tags') {
-      // Tags are at problem level now
       const masterProb = currentHistory.find(p => (p.number || p.name) === (entry.number || entry.name));
       if (masterProb) {
         masterProb.showTags = !masterProb.showTags;
@@ -2243,7 +2276,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         filterHistory();
       }
     } else if (action === 'open-history-tag-modal') {
-      // Find index in master currentHistory for openTagModal
       const masterIdx = currentHistory.findIndex(p => (p.number || p.name) === (entry.number || entry.name));
       if (masterIdx !== -1) {
         taggingContext = { type: 'history', index: masterIdx };
@@ -2254,7 +2286,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (nSection) {
         const isHidden = nSection.style.display === 'none';
         nSection.style.display = isHidden ? 'block' : 'none';
-        e.target.textContent = isHidden ? '▼ HIDE' : (entry.notes ? 'EDIT' : 'ADD');
+        btn.textContent = isHidden ? '▼ HIDE' : (entry.notes ? 'EDIT' : 'ADD');
         if (isHidden) {
           const ta = nSection.querySelector('textarea');
           if (ta) {

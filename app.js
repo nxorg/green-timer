@@ -565,7 +565,8 @@ let appSettings = {
   autoAdd: false,
   autoStart: false,
   dailyGoal: 3,
-  startupView: 'last' // 'last' or 'stopwatch'
+  startupView: 'last', // 'last' or 'stopwatch'
+  zenMode: false
 };
 
 const DEFAULT_STATUSES = [
@@ -788,13 +789,48 @@ function renderSettings() {
   });
   
   const soundInp = document.getElementById('setting-sound-enabled');
-  if (soundInp) soundInp.checked = appSettings.soundEnabled;
+  if (soundInp) {
+    soundInp.checked = appSettings.soundEnabled;
+    if (!soundInp.dataset.listenerAdded) {
+      soundInp.addEventListener('change', (e) => { appSettings.soundEnabled = e.target.checked; saveSettings(); });
+      soundInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const autoAddInp = document.getElementById('setting-auto-add');
-  if (autoAddInp) autoAddInp.checked = appSettings.autoAdd;
+  if (autoAddInp) {
+    autoAddInp.checked = appSettings.autoAdd;
+    if (!autoAddInp.dataset.listenerAdded) {
+      autoAddInp.addEventListener('change', (e) => { appSettings.autoAdd = e.target.checked; saveSettings(); });
+      autoAddInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const autoStartInp = document.getElementById('setting-auto-start');
-  if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
+  if (autoStartInp) {
+    autoStartInp.checked = appSettings.autoStart;
+    if (!autoStartInp.dataset.listenerAdded) {
+      autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
+      autoStartInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const zenModeInp = document.getElementById('setting-zen-mode');
+  if (zenModeInp) {
+    zenModeInp.checked = appSettings.zenMode || false;
+    if (appSettings.zenMode) document.body.classList.add('zen-active');
+    else document.body.classList.remove('zen-active');
+    
+    if (!zenModeInp.dataset.listenerAdded) {
+      zenModeInp.addEventListener('change', (e) => {
+        appSettings.zenMode = e.target.checked;
+        if (appSettings.zenMode) document.body.classList.add('zen-active');
+        else document.body.classList.remove('zen-active');
+        saveSettings();
+      });
+      zenModeInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
   if (dailyGoalInp) {
@@ -2164,13 +2200,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   
   const soundInp = document.getElementById('setting-sound-enabled');
-  if (soundInp) soundInp.checked = appSettings.soundEnabled;
+  if (soundInp) {
+    soundInp.checked = appSettings.soundEnabled;
+    if (!soundInp.dataset.listenerAdded) {
+      soundInp.addEventListener('change', (e) => { appSettings.soundEnabled = e.target.checked; saveSettings(); });
+      soundInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const autoAddInp = document.getElementById('setting-auto-add');
-  if (autoAddInp) autoAddInp.checked = appSettings.autoAdd;
+  if (autoAddInp) {
+    autoAddInp.checked = appSettings.autoAdd;
+    if (!autoAddInp.dataset.listenerAdded) {
+      autoAddInp.addEventListener('change', (e) => { appSettings.autoAdd = e.target.checked; saveSettings(); });
+      autoAddInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const autoStartInp = document.getElementById('setting-auto-start');
-  if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
+  if (autoStartInp) {
+    autoStartInp.checked = appSettings.autoStart;
+    if (!autoStartInp.dataset.listenerAdded) {
+      autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
+      autoStartInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const zenModeInp = document.getElementById('setting-zen-mode');
+  if (zenModeInp) {
+    zenModeInp.checked = appSettings.zenMode || false;
+    if (appSettings.zenMode) document.body.classList.add('zen-active');
+    else document.body.classList.remove('zen-active');
+    
+    if (!zenModeInp.dataset.listenerAdded) {
+      zenModeInp.addEventListener('change', (e) => {
+        appSettings.zenMode = e.target.checked;
+        if (appSettings.zenMode) document.body.classList.add('zen-active');
+        else document.body.classList.remove('zen-active');
+        saveSettings();
+      });
+      zenModeInp.dataset.listenerAdded = "true";
+    }
+  }
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
   if (dailyGoalInp) {

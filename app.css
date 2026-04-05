@@ -214,6 +214,35 @@ body.light-mode .tabs { background: rgba(0, 0, 0, 0.05); }
 
 .problem-time { font-size: 1em; color: var(--green); font-weight: bold; min-width: 85px; text-align: right; }
 
+/* Zen Mode */
+body.zen-active .problem-time,
+body.zen-active .display {
+  color: transparent !important;
+  text-shadow: none !important;
+  position: relative;
+}
+body.zen-active .problem-time::after,
+body.zen-active .display::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  background: var(--green);
+  border-radius: 50%;
+  box-shadow: 0 0 10px var(--green);
+  animation: pulse 2s infinite;
+}
+body.zen-active .display::after {
+  left: 50%;
+  right: auto;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+}
+
 /* Link Styles */
 a { color: var(--green); text-decoration: none; }
 a:visited { color: var(--green); }

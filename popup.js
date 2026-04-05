@@ -1151,7 +1151,6 @@ function formatMarkdown(text) {
 }
 async function saveHistory() { await activeStorage.set({ leetcode_history: currentHistory }); }
 
-let currentHistory = [];
 async function renderHistory() { 
   const l = document.getElementById('log-list'), d = await activeStorage.get(['leetcode_history', 'problem_statuses', 'problem_status_colors']); 
   
@@ -1467,12 +1466,17 @@ async function handleRestore(text, isCSV = false) {
 
 // --- Stats & Heatmap ---
 let hChart, mChart, aChart, hoChart, dChart, selectedHeatmapYear = 'rolling';
-function renderHeatmap(logs, isLight, mainGreen) {
+function renderHeatmap(problemsData, isLight, mainGreen) {
   const canvas = document.getElementById('contributionHeatmap'), selector = document.getElementById('heatmap-year-selector'); 
   if (!canvas || !selector) return;
   const container = canvas.parentElement; if (!container) return;
 
-  const years = [...new Set(logs.filter(l => l && l.timestamp).map(l => new Date(l.timestamp).getFullYear()))].sort((a,b) => b-a);
+  const allSubmissions = [];
+  problemsData.forEach(p => {
+    if (p.submissions) p.submissions.forEach(s => allSubmissions.push(s));
+  });
+
+  const years = [...new Set(allSubmissions.filter(s => s && s.timestamp).map(s => new Date(s.timestamp).getFullYear()))].sort((a,b) => b-a);
   const currentOptions = Array.from(selector.options).map(o => o.value);
   years.forEach(y => { if (!currentOptions.includes(y.toString())) { const opt = document.createElement('option'); opt.value = y; opt.textContent = y; selector.appendChild(opt); } });
   
@@ -1494,7 +1498,7 @@ function renderHeatmap(logs, isLight, mainGreen) {
   if (selectedHeatmapYear === 'rolling') { startD = new Date(now); startD.setDate(now.getDate() - 365); startD.setDate(startD.getDate() - startD.getDay()); endD = now; }
   else { const yr = parseInt(selectedHeatmapYear); startD = new Date(yr, 0, 1); startD.setDate(startD.getDate() - startD.getDay()); endD = new Date(yr, 11, 31); }
   
-  const dailyData = {}; logs.forEach(l => { if (l && l.timestamp) { const k = getDateKey(l.timestamp); dailyData[k] = (dailyData[k] || 0) + 1; } });
+  const dailyData = {}; allSubmissions.forEach(s => { if (s && s.timestamp) { const k = getDateKey(s.timestamp); dailyData[k] = (dailyData[k] || 0) + 1; } });
   
   ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.fillStyle = isLight ? '#666' : '#999'; ctx.font = '7px sans-serif';
   ['M', 'W', 'F'].forEach((day, i) => { ctx.fillText(day, 0, topP + (i * 2 + 2) * (boxSize + gap) - 2); });
@@ -1524,47 +1528,51 @@ function formatDuration(ms) {
 }
 
 async function renderStats(includeCharts = true) {
-  const d = await activeStorage.get(['leetcode_history', 'leetcode_problems', 'app_settings']), logs = d.leetcode_history || [], curr = d.leetcode_problems || [];
+  const d = await activeStorage.get(['leetcode_history', 'leetcode_problems', 'app_settings']), masterProblems = d.leetcode_history || [], curr = d.leetcode_problems || [];
   if (d.app_settings) appSettings = { ...appSettings, ...d.app_settings };
   const isLight = document.body.classList.contains('light-mode'), mainGreen = isLight ? '#008000' : '#00ff00', gridColor = isLight ? 'rgba(0, 128, 0, 0.1)' : 'rgba(0, 255, 0, 0.1)';
   
-  if (includeCharts) renderHeatmap(logs, isLight, mainGreen);
+  const allSubmissions = [];
+  masterProblems.forEach(p => {
+    if (p.submissions) p.submissions.forEach(s => allSubmissions.push({ ...p, ...s, submissions: undefined }));
+  });
+
+  if (includeCharts) renderHeatmap(masterProblems, isLight, mainGreen);
   
   const diffCounts = { easy: 0, medium: 0, hard: 0 };
-  logs.forEach(l => { if (l && l.difficulty) { const dL = l.difficulty.toLowerCase(); if (dL.includes('easy')) diffCounts.easy++; else if (dL.includes('medium')) diffCounts.medium++; else if (dL.includes('hard')) diffCounts.hard++; } });
+  allSubmissions.forEach(s => { if (s && s.difficulty) { const dL = s.difficulty.toLowerCase(); if (dL.includes('easy')) diffCounts.easy++; else if (dL.includes('medium')) diffCounts.medium++; else if (dL.includes('hard')) diffCounts.hard++; } });
   
   if (includeCharts) {
     const dCtx = document.getElementById('difficultyChart'); if (dCtx) { if (dChart) dChart.destroy(); dChart = new Chart(dCtx, { type: 'doughnut', data: { labels: ['Easy', 'Medium', 'Hard'], datasets: [{ data: [diffCounts.easy, diffCounts.medium, diffCounts.hard], backgroundColor: ['#00af9b', '#ffb800', '#ff2d55'], borderWidth: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { color: isLight ? '#333' : '#fff', font: { size: 10 } } } } } }); }
   }
 
-  const totalMs = logs.reduce((s, l) => s + (l ? (l.elapsedMs || parseTimeToMs(l.timeStr) || 0) : 0), 0);
-  const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = logs.length;
+  const totalMs = allSubmissions.reduce((s, sub) => s + (sub ? (sub.elapsedMs || parseTimeToMs(sub.timeStr) || 0) : 0), 0);
+  const tpEl = document.getElementById('total-problems'); if (tpEl) tpEl.textContent = masterProblems.length;
   const ttsEl = document.getElementById('total-time-spent'); if (ttsEl) ttsEl.textContent = formatTime(totalMs);
   const todayK = getDateKey(new Date()), now = new Date(), startW = new Date(now.getTime() - 7 * 86400000), startM = new Date(now.getTime() - 30 * 86400000), thisY = now.getFullYear();
   
-  // Calculate time from currently running problems
   const activeTimeMs = problems.reduce((s, p) => s + (p.isRunning ? (Date.now() - p.startTime) : p.elapsed), 0);
 
-  const logsToday = logs.filter(l => getDateKey(l.timestamp) === todayK);
+  const logsToday = allSubmissions.filter(s => getDateKey(s.timestamp) === todayK);
   const solvedToday = logsToday.length;
   const stEl = document.getElementById('stat-today'); if (stEl) stEl.textContent = solvedToday;
   const ttEl = document.getElementById('time-today'); if (ttEl) ttEl.textContent = formatDuration(logsToday.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
 
-  const logsWeek = logs.filter(l => l.timestamp > startW.getTime());
+  const logsWeek = allSubmissions.filter(s => s.timestamp > startW.getTime());
   const swEl = document.getElementById('stat-week'); if (swEl) swEl.textContent = logsWeek.length;
   const twEl = document.getElementById('time-week'); if (twEl) twEl.textContent = formatDuration(logsWeek.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
 
-  const logsMonth = logs.filter(l => l.timestamp > startM.getTime());
+  const logsMonth = allSubmissions.filter(s => s.timestamp > startM.getTime());
   const smEl = document.getElementById('stat-month'); if (smEl) smEl.textContent = logsMonth.length;
   const tmEl = document.getElementById('time-month'); if (tmEl) tmEl.textContent = formatDuration(logsMonth.reduce((s, l) => s + (l.elapsedMs || 0), 0) + activeTimeMs);
 
-  const syEl = document.getElementById('stat-year'); if (syEl) syEl.textContent = logs.filter(l => new Date(l.timestamp).getFullYear() === thisY).length;
+  const syEl = document.getElementById('stat-year'); if (syEl) syEl.textContent = allSubmissions.filter(s => new Date(s.timestamp).getFullYear() === thisY).length;
   
-  const totalMsFromLogs = logs.reduce((s, l) => s + (l.elapsedMs || 0), 0);
+  const totalMsFromLogs = allSubmissions.reduce((s, l) => s + (l.elapsedMs || 0), 0);
   const taEl = document.getElementById('time-all'); if (taEl) taEl.textContent = formatDuration(totalMsFromLogs + activeTimeMs);
   
   const csEl = document.getElementById('current-streak'); if (csEl) {
-    const daysArr = [...new Set(logs.filter(l => l && l.timestamp).map(l => getDateKey(l.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
+    const daysArr = [...new Set(allSubmissions.filter(s => s && s.timestamp).map(s => getDateKey(s.timestamp)))].filter(k => k !== "").sort((a,b) => b.localeCompare(a));
     let streak = 0; if (daysArr.length > 0) {
       let c = new Date(); c.setHours(0,0,0,0); if (daysArr[0] === getDateKey(c) || daysArr[0] === getDateKey(new Date(c.getTime() - 86400000))) {
         let curC = (daysArr[0] === getDateKey(c)) ? c : new Date(c.getTime() - 86400000); for (let day of daysArr) { if (day === getDateKey(curC)) { streak++; curC.setDate(curC.getDate() - 1); } else break; }
@@ -1579,12 +1587,12 @@ async function renderStats(includeCharts = true) {
 
   if (includeCharts) {
     const l7k = [], l7l = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l7k.push(getDateKey(d)); l7l.push((d.getMonth()+1)+'/'+d.getDate()); }
-    const d7Counts = l7k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
+    const d7Counts = l7k.map(k => allSubmissions.filter(s => getDateKey(s.timestamp) === k).length);
     const hCt = document.getElementById('progressChart'); if(hCt) { if (hChart) hChart.destroy(); hChart = new Chart(hCt, { type:'bar', data:{ labels:l7l, datasets:[{ data:d7Counts, backgroundColor:isLight?'rgba(0,128,0,0.5)':'rgba(0,255,0,0.5)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}}} }, plugins:{legend:{display:false}} } }); }
     const l30k = [], l30l = []; for (let i=29; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); l30k.push(getDateKey(d)); l30l.push(i%5===0 ? (d.getMonth()+1)+'/'+d.getDate() : ''); }
-    const d30Counts = l30k.map(k => logs.filter(l => getDateKey(l.timestamp) === k).length);
+    const d30Counts = l30k.map(k => allSubmissions.filter(s => getDateKey(s.timestamp) === k).length);
     const mCt = document.getElementById('monthProgressChart'); if(mCt) { if (mChart) mChart.destroy(); mChart = new Chart(mCt, { type:'bar', data:{ labels:l30l, datasets:[{ data:d30Counts, backgroundColor:isLight?'rgba(0,128,0,0.4)':'rgba(0,255,0,0.4)', borderColor:mainGreen, borderWidth:1 }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
-    const hrData = Array(24).fill(0); logs.forEach(l => { if (l && l.timestamp && getDateKey(l.timestamp) === todayK) { const d = new Date(l.timestamp); hrData[d.getHours()]++; } });
+    const hrData = Array(24).fill(0); allSubmissions.forEach(s => { if (s && s.timestamp && getDateKey(s.timestamp) === todayK) { const d = new Date(s.timestamp); hrData[d.getHours()]++; } });
     const hoCt = document.getElementById('hourlyActivityChart'); if(hoCt) { if (hoChart) hoChart.destroy(); hoChart = new Chart(hoCt, { type:'bar', data:{ labels:Array.from({length:24}, (_,i) => i === 0 ? '12am' : (i < 12 ? i+'am' : (i === 12 ? '12pm' : (i-12)+'pm'))), datasets:[{ data:hrData, backgroundColor:isLight?'rgba(0,128,0,0.6)':'rgba(0,255,0,0.6)' }] }, options:{ responsive:true, maintainAspectRatio:false, scales:{ y:{beginAtZero:true, grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:8}, stepSize:1}}, x:{grid:{color:gridColor}, ticks:{color:mainGreen, font:{size:7}}} }, plugins:{legend:{display:false}} } }); }
     const activeS = document.getElementById('active-chart-section');
     if (curr.length > 0 && activeS) {
@@ -1594,9 +1602,9 @@ async function renderStats(includeCharts = true) {
 
   // Tag Distribution List (Always visible in stats tab)
   const tagCounts = {};
-  logs.forEach(l => {
-    if (l.tags && Array.isArray(l.tags)) {
-      l.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
+  allSubmissions.forEach(s => {
+    if (s.tags && Array.isArray(s.tags)) {
+      s.tags.forEach(t => { tagCounts[t] = (tagCounts[t] || 0) + 1; });
     }
   });
   
@@ -1807,14 +1815,20 @@ document.addEventListener('DOMContentLoaded', async () => {
       const originalText = exportCsv.textContent;
       exportCsv.textContent = 'EXPORTING...';
       try {
-        const d = await activeStorage.get('leetcode_history'), h = d.leetcode_history || []; 
-        if (h.length === 0) {
+        const d = await activeStorage.get('leetcode_history'), masterHistory = d.leetcode_history || []; 
+        if (masterHistory.length === 0) {
           exportCsv.textContent = 'EMPTY!';
           setTimeout(() => { exportCsv.textContent = originalText; }, 2000);
           return;
         }
+        
+        const flat = [];
+        masterHistory.forEach(p => {
+          if(p.submissions) p.submissions.forEach(s => flat.push({...p, ...s, submissions: undefined}));
+        });
+        
         let csv = 'Number,Name,Difficulty,Time,Tags,Notes,URL,ISO_Date,Local_Time\n';
-        h.forEach(i => {
+        flat.sort((a,b) => b.timestamp - a.timestamp).forEach(i => {
           const dt = new Date(i.timestamp), sn = (i.notes || "").replace(/"/g, '""');
           const st = (i.tags || []).join('; ').replace(/"/g, '""');
           csv += `"${i.number}","${i.name}","${i.difficulty || ""}","${i.timeStr}","${st}","${sn}","${i.url}","${dt.toISOString()}","${dt.toLocaleString()}"\n`;
@@ -1845,16 +1859,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   
   const soundInp = document.getElementById('setting-sound-enabled');
-  if (soundInp) soundInp.addEventListener('change', (e) => { appSettings.soundEnabled = e.target.checked; saveSettings(); });
+  if (soundInp) soundInp.checked = appSettings.soundEnabled;
   
   const autoAddInp = document.getElementById('setting-auto-add');
-  if (autoAddInp) autoAddInp.addEventListener('change', (e) => { appSettings.autoAdd = e.target.checked; saveSettings(); });
+  if (autoAddInp) autoAddInp.checked = appSettings.autoAdd;
   
   const autoStartInp = document.getElementById('setting-auto-start');
-  if (autoStartInp) autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
+  if (autoStartInp) autoStartInp.checked = appSettings.autoStart;
   
   const dailyGoalInp = document.getElementById('setting-daily-goal');
-  if (dailyGoalInp) dailyGoalInp.addEventListener('change', (e) => { appSettings.dailyGoal = parseInt(e.target.value) || 3; saveSettings(); if (document.getElementById('stats').classList.contains('active')) renderStats(); });
+  if (dailyGoalInp) dailyGoalInp.value = appSettings.dailyGoal;
 
   const factoryResetBtn = document.getElementById('factory-reset');
   if (factoryResetBtn) factoryResetBtn.addEventListener('click', async () => {

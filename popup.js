@@ -611,6 +611,13 @@ function startStandaloneSwUI() {
   swInterval = setInterval(() => { const el = document.getElementById('sw-display'); if(el) el.textContent = formatTime(Date.now() - swStartTime, true); }, 50); 
 }
 
+function injectAnalyticsIcon(parent) {
+  const parser = new DOMParser();
+  const svgDoc = parser.parseFromString(ANALYTICS_SVG, 'image/svg+xml');
+  const svgElement = svgDoc.documentElement;
+  parent.appendChild(svgElement);
+}
+
 // --- Problems ---
 async function loadProblems() { 
   const d = await activeStorage.get(['leetcode_problems', 'problem_statuses', 'problem_status_colors', 'app_settings']); 
@@ -780,7 +787,7 @@ function renderProblems() {
     const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
     tagBtn.textContent = p.showTags ? 'HIDE TAGS' : 'TAGS'; 
     tagBtn.dataset.index = i; tagBtn.dataset.action = 'toggle-tags';
-    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.innerHTML = ANALYTICS_SVG; anaBtn.title = 'Analytics'; anaBtn.dataset.index = i; anaBtn.dataset.action = 'analytics';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; injectAnalyticsIcon(anaBtn); anaBtn.title = 'Analytics'; anaBtn.dataset.index = i; anaBtn.dataset.action = 'analytics';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = i; delBtn.dataset.action = 'delete';
     
     actionButtons.appendChild(tagBtn);
@@ -1278,7 +1285,7 @@ function filterHistory() {
     const tagBtn = document.createElement('button'); tagBtn.className = 'btn-small'; 
     tagBtn.textContent = i.showTags ? 'HIDE TAGS' : 'TAGS'; 
     tagBtn.dataset.index = idx; tagBtn.dataset.action = 'toggle-history-tags';
-    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; anaBtn.innerHTML = ANALYTICS_SVG; anaBtn.title = 'Analytics'; anaBtn.dataset.index = idx; anaBtn.dataset.action = 'history-analytics';
+    const anaBtn = document.createElement('button'); anaBtn.className = 'btn-small'; injectAnalyticsIcon(anaBtn); anaBtn.title = 'Analytics'; anaBtn.dataset.index = idx; anaBtn.dataset.action = 'history-analytics';
     const copyBtn = document.createElement('button'); copyBtn.className = 'btn-small'; copyBtn.textContent = 'CPY'; copyBtn.dataset.index = idx; copyBtn.dataset.action = 'copy-history-note';
     const delBtn = document.createElement('button'); delBtn.className = 'btn-small'; delBtn.textContent = 'X'; delBtn.dataset.index = idx; delBtn.dataset.action = 'delete-history';
     
@@ -1625,7 +1632,15 @@ async function renderStats(includeCharts = true) {
         const badge = document.createElement('span');
         badge.className = 'tag-badge';
         badge.style.cursor = 'pointer';
-        badge.innerHTML = `${tag} <span style="opacity:0.6; margin-left:4px;">(${count})</span>`;
+        
+        const tagName = document.createTextNode(tag + " ");
+        const countSpan = document.createElement('span');
+        countSpan.style.opacity = '0.6';
+        countSpan.style.marginLeft = '4px';
+        countSpan.textContent = `(${count})`;
+        
+        badge.appendChild(tagName);
+        badge.appendChild(countSpan);
         badge.title = `Click to see all ${tag} problems`;
         badge.onclick = () => {
           // 1. Set the global tag filter (reset to just this one for quick drill-down)

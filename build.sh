@@ -19,9 +19,9 @@ rm -f $OUT_DIR/$FILENAME
 # Create zip file with required extension files (excluding dev tools)
 zip -r $OUT_DIR/$FILENAME \
     manifest.json \
-    popup.html \
-    popup.css \
-    popup.js \
+    app.html \
+    app.css \
+    app.js \
     background.js \
     content.js \
     chart.js \
@@ -29,7 +29,7 @@ zip -r $OUT_DIR/$FILENAME \
     LICENSE \
     README.md \
     PRIVACY.md \
-    -x "test-bench.html" "stress-test.js"
+    -x "test.html" "stress.js"
 
 echo "✅ Build complete: ${OUT_DIR}/${FILENAME}"
 echo "🚀 Ready for upload to Chrome Web Store and Firefox Add-ons!"

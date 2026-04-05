@@ -1828,7 +1828,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   const expandBtn = document.getElementById('expand-page-btn'); 
   if(expandBtn) expandBtn.addEventListener('click', () => { 
-    api.tabs.create({ url: api.runtime.getURL('popup.html?full=1') }); 
+    api.tabs.create({ url: api.runtime.getURL('app.html?full=1') }); 
     window.close(); // Close the popup after opening the full page
   });
 
@@ -1953,7 +1953,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     importBtn.addEventListener('click', () => { 
       if (window.location.search.indexOf('full=1') === -1 && window.innerWidth < 500) {
         // We are in popup mode, must open full page to prevent auto-close
-        api.tabs.create({ url: api.runtime.getURL('popup.html?full=1&action=restore') });
+        api.tabs.create({ url: api.runtime.getURL('app.html?full=1&action=restore') });
       } else {
         const f = document.getElementById('import-file'); 
         if(f) f.click(); 
@@ -2083,7 +2083,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const openTestBench = document.getElementById('open-test-bench');
   if (openTestBench) {
     openTestBench.addEventListener('click', () => {
-      api.tabs.create({ url: api.runtime.getURL('test-bench.html') });
+      api.tabs.create({ url: api.runtime.getURL('test.html') });
     });
   }
 

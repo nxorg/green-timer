@@ -7,26 +7,27 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 *   **Structure**: A Problem object contains metadata (`name`, `number`, `url`, `difficulty`, `tags`) and a nested `submissions` array.
 *   **Rule**: Metadata is stored **once** at the problem level. Do not duplicate metadata inside individual submissions.
 *   **Synchronization**: Any change to a problem's tags must be synchronized across all active problems and historical records via the `problemMetadata` centralized store.
+*   **Scalability**: The system must handle 15,000+ submissions through lazy-loading (50 items initial) and O(N) Map-based migration.
 
 ## 🛡️ Security Standards
 *   **Mandate**: Never use `innerHTML` for dynamic content or user-provided data.
 *   **Pattern**: Use `document.createTextNode()` or `element.textContent` for all notes, names, and tags.
-*   **SVG Injection**: Use the `injectAnalyticsIcon(parent)` helper which utilizes `DOMParser` for secure SVG rendering.
+*   **SVG Injection**: Use the `injectAnalyticsIcon(parent)` helper for secure SVG rendering.
 
 ## 🎨 UI & Layout Patterns
-*   **Unified Row Design**: All problem/history rows must follow the two-row flexbox structure:
-    *   **Top Row**: Title/Link (Left) + Action Buttons (Right).
-    *   **Bottom Row**: Status/Difficulty (Left) + Timer/Date (Right).
+*   **File Naming**: Use the `app.*` convention (`app.html`, `app.css`, `app.js`).
+*   **Unified Row Design**: All rows must follow the two-row flexbox structure.
+*   **Filter UI**: History filters must be hidden within the toggleable "FILTERS" section by default.
 *   **Iconography**: Use the centralized `ANALYTICS_SVG` constant for all trend/analytics buttons.
-*   **Theme Consistency**: Always verify contrast in both Dark (#00ff00) and Light (#008000) modes.
+*   **Interaction**: Icons must have `pointer-events: none` to ensure clicks reach the parent button.
 
 ## 🏷️ Tagging System
-*   **Library Policy**: Only tags existing in the `global_tags` library should be used to maintain data cleanliness.
-*   **Case Sensitivity**: Always perform case-insensitive checks when adding tags to the library to prevent duplicates like "Math" and "math".
+*   **Library Policy**: Only tags existing in the `global_tags` library should be used.
+*   **Case Sensitivity**: Always perform case-insensitive checks for library additions.
 
 ## 🚀 Versioning & Build
-*   **Version Source**: `manifest.json` is the source of truth for the version number.
-*   **Packaging**: Always use `./build.sh` to generate the production zip. It automatically handles version naming and directory cleanup.
+*   **Version Source**: `manifest.json`.
+*   **Packaging**: Always use `./build.sh`. Dev tools (`test.html`, `stress.js`) are automatically excluded from production zips.
 
 ---
-*Generated at v1.2.6 - Engineering Innovation for Everyone.*
+*Updated at v1.2.7 - Engineering Innovation for Everyone.*

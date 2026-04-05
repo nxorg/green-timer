@@ -49,10 +49,17 @@ document.getElementById('generateBtn').onclick = () => {
 
         for (let j = 0; j < subsPerProb; j++) {
             const ts = Date.now() - (Math.random() * 10000000000); // Random time in last ~4 months
+            const randomMs = Math.floor(Math.random() * 3600000) + 60000; // 1 min to 60 mins
+            
+            // Format time string manually for stress test
+            let s = Math.floor(randomMs / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+            s %= 60; m %= 60;
+            const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.00`;
+
             problem.submissions.push({
                 status: statuses[Math.floor(Math.random() * statuses.length)],
-                timeStr: "00:15:30.00",
-                elapsedMs: 930000,
+                timeStr: timeStr,
+                elapsedMs: randomMs,
                 timestamp: ts,
                 notes: `System generated stress test note for problem ${i} submission ${j}`
             });

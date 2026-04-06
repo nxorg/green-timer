@@ -9,8 +9,9 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 *   **Synchronization**: Any change to a problem's tags must be synchronized across all active problems and historical records via the `problemMetadata` centralized store.
 *   **Scalability**: The system must handle 15,000+ submissions through lazy-loading (50 items initial) and O(N) Map-based migration.
 
-## 🛡️ Security Standards
+## 🛡️ Security & Environment Standards
 *   **Mandate**: Never use `innerHTML` for dynamic content or user-provided data.
+*   **Environment Isolation**: Red Mode (Testing) must strictly use `dev_` prefixed storage keys via the `activeStorage` layer to protect Live data.
 *   **Pattern**: Use `document.createTextNode()` or `element.textContent` for all notes, names, and tags.
 *   **SVG Injection**: Use the `injectAnalyticsIcon(parent)` helper for secure SVG rendering.
 
@@ -27,7 +28,7 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 
 ## 🚀 Versioning & Build
 *   **Version Source**: `manifest.json`.
-*   **Packaging**: Always use `./build.sh`. Dev tools (`test.html`, `stress.js`) are automatically excluded from production zips.
+*   **Packaging**: Always use `./build.sh`.
 
 ---
-*Updated at v1.2.7 - Engineering Innovation for Everyone.*
+*Updated at v1.4.0 - Engineering Innovation for Everyone.*

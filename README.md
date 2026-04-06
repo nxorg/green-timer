@@ -42,6 +42,7 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 - **Inline Editing:** Edit problem notes directly within the glass-terminal history log.
 - **Markdown Support:** Format your notes/code snippets with Markdown.
 - **Export/Restore:** Robust JSON backup and CSV export (including tags) for external analysis.
+- **Red Mode (Testing):** Strict environment isolation via `?red-mode=1` URL parameter to protect your live history during development and stress testing.
 
 ### 🎨 Premium UI/UX
 - **High Contrast:** Instant switching between Dark (#00ff00) and Light (#008000) modes.

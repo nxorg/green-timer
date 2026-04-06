@@ -28,8 +28,7 @@ zip -r $OUT_DIR/$FILENAME \
     icons/ \
     LICENSE \
     README.md \
-    PRIVACY.md \
-    -x "test.html" "stress.js"
+    PRIVACY.md
 
 echo "✅ Build complete: ${OUT_DIR}/${FILENAME}"
 echo "🚀 Ready for upload to Chrome Web Store and Firefox Add-ons!"

@@ -90,12 +90,12 @@ The `problem_metadata` store acts as a global lookup for tags and review dates. 
 
 ### Stress Testing & Red Mode
 To verify O(N) performance with 15,000+ entries without affecting your real data:
-1.  Open the **Settings** tab.
-2.  Click the **"GREEN TIMER" logo** 5 times rapidly to reveal the hidden developer tools.
-3.  Click **"DEV: OPEN STRESS TEST"**.
-4.  The system automatically enters **Red Mode** (notice the UI turning red with a "TESTING ENVIRONMENT" banner).
-5.  Run the generator in the new tab; data will be injected into the `dev_` database only.
-6.  Close the tab or remove `?red-mode=1` from the URL to return to your live data.
+1.  Open the extension in a full tab or dashboard.
+2.  Append `?red-mode=1` to the URL (e.g., `app.html?red-mode=1`).
+3.  The system automatically enters **Red Mode** (notice the UI turning red with a "TESTING ENVIRONMENT" banner).
+4.  Navigate to the **Dev Bench** tab that appears only in this mode.
+5.  Run the generator; data will be injected into the `dev_` database only.
+6.  Remove `?red-mode=1` from the URL to return to your live data.
 
 ### Building for Production
 Always run the build script before uploading to the store:

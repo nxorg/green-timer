@@ -1998,11 +1998,114 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// --- Dev Bench (Red Mode Only) ---
+function initDevBench() {
+  const genBtn = document.getElementById('dev-generate-btn');
+  const clearBtn = document.getElementById('dev-clear-btn');
+  const logEl = document.getElementById('dev-log');
+  const statusEl = document.getElementById('dev-status');
+
+  if (!genBtn || !clearBtn) return;
+
+  const log = (msg) => {
+    const div = document.createElement('div');
+    div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    if (logEl) logEl.prepend(div);
+  };
+
+  clearBtn.onclick = async () => {
+    if (confirm('Clear ALL development data (prefixed with dev_)?')) {
+      await activeStorage.clear();
+      log('Dev storage cleared.');
+      if (statusEl) statusEl.textContent = 'Storage Empty.';
+      window.location.reload();
+    }
+  };
+
+  genBtn.onclick = async () => {
+    const numProblems = parseInt(document.getElementById('dev-prob-count').value) || 0;
+    const subsPerProb = parseInt(document.getElementById('dev-sub-count').value) || 0;
+    const totalEntries = numProblems * subsPerProb;
+
+    if (totalEntries <= 0) return;
+    
+    if (statusEl) statusEl.textContent = `Generating ${totalEntries} entries...`;
+    log(`Starting generation of ${numProblems} problems...`);
+
+    const tags = ['Array', 'String', 'DP', 'Math', 'Tree', 'Graph', 'Sorting', 'Greedy', 'Bitmask'];
+    const diffs = ['Easy', 'Medium', 'Hard'];
+    const statuses = ['Solved Independently', 'Struggled', 'Mastered', 'Needs Revision'];
+
+    const leetcode_history = [];
+    const problem_metadata = {};
+
+    const startTime = performance.now();
+
+    for (let i = 1; i <= numProblems; i++) {
+      const probTags = [tags[Math.floor(Math.random() * tags.length)], tags[Math.floor(Math.random() * tags.length)]];
+      const uniqueTags = [...new Set(probTags)];
+      
+      const problem = {
+        name: `Stress Test Problem ${i}`,
+        number: `${i}`,
+        url: `https://leetcode.com/problems/stress-test-${i}/`,
+        difficulty: diffs[Math.floor(Math.random() * diffs.length)],
+        tags: uniqueTags,
+        submissions: []
+      };
+
+      for (let j = 0; j < subsPerProb; j++) {
+        const ts = Date.now() - (Math.random() * 10000000000); 
+        const randomMs = Math.floor(Math.random() * 3600000) + 60000; 
+        
+        let s = Math.floor(randomMs / 1000), m = Math.floor(s / 60), h = Math.floor(m / 60);
+        s %= 60; m %= 60;
+        const timeStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.00`;
+
+        problem.submissions.push({
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          timeStr: timeStr,
+          elapsedMs: randomMs,
+          timestamp: ts,
+          notes: `System generated stress test note for problem ${i} submission ${j}`
+        });
+      }
+
+      problem.submissions.sort((a,b) => b.timestamp - a.timestamp);
+      leetcode_history.push(problem);
+      problem_metadata[`${i}`] = { tags: uniqueTags };
+    }
+
+    const endTime = performance.now();
+    log(`Generation complete in ${(endTime - startTime).toFixed(2)}ms.`);
+    
+    if (statusEl) statusEl.textContent = 'Injecting into Dev Storage...';
+    
+    await activeStorage.set({
+      leetcode_history: leetcode_history,
+      problem_metadata: problem_metadata,
+      global_tags: tags
+    });
+
+    log('SUCCESS: Stress test data injected.');
+    if (statusEl) statusEl.textContent = `Done! Total: ${totalEntries} entries stored.`;
+    
+    // Refresh the app state
+    await loadProblems();
+    await renderHistory();
+    if (document.getElementById('stats').classList.contains('active')) await renderStats();
+  };
+}
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
   if (isRedMode) {
     document.body.classList.add('red-mode');
     console.log("🛠️ GREEN TIMER: Red Mode (Testing) Active. Using dev_ database.");
+    
+    const devTabBtn = document.getElementById('dev-bench-tab');
+    if (devTabBtn) devTabBtn.style.display = 'block';
+    initDevBench();
   }
 
   try {
@@ -2028,39 +2131,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 2. Setup Listeners
   initTabs();
 
-  // Developer Easter Egg: Click logo 5 times CONSECUTIVELY to show Stress Test button
-  const manifest = api.runtime.getManifest();
-  const isDevMode = !('update_url' in manifest); 
-
-  if (isDevMode) {
-    let logoClicks = 0;
-    let lastClickTime = 0;
-    const logoEl = document.querySelector('.brand-box');
-    if (logoEl) {
-      logoEl.style.cursor = 'pointer';
-      logoEl.addEventListener('click', () => {
-        const now = Date.now();
-        if (now - lastClickTime > 1500) logoClicks = 0;
-        logoClicks++;
-        lastClickTime = now;
-        if (logoClicks === 5) {
-          const btn = document.getElementById('open-test-bench');
-          if (btn) {
-            btn.style.display = 'block';
-            btn.style.animation = 'pulse 1s 2';
-          }
-          logoClicks = 0;
-        }
-      });
-    }
-
-    const testBenchBtn = document.getElementById('open-test-bench');
-    if (testBenchBtn) {
-      testBenchBtn.addEventListener('click', () => {
-        window.open('test.html?red-mode=1', '_blank');
-      });
-    }
-  }
   const themeBtn = document.getElementById('theme-toggle'); 
   if(themeBtn) themeBtn.addEventListener('click', async () => { 
     document.body.classList.toggle('light-mode'); 

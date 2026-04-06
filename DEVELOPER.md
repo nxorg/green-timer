@@ -38,6 +38,14 @@ interface Submission {
 }
 ```
 
+### 🛡️ Environment Isolation (Database Partitioning)
+The extension implements a strict **Red Mode (Testing)** vs **Green Mode (Live)** isolation at the storage layer to prevent accidental data corruption during development.
+
+*   **Active Mode**: Detected via `red-mode=1` URL parameter or `test.html` pathname.
+*   **Key Prefixing**: In Red Mode, `activeStorage` automatically prefixes all keys with `dev_` (e.g., `dev_leetcode_history`).
+*   **Data Stripping**: When reading data in Red Mode, the `dev_` prefix is transparently stripped so the app logic remains unchanged.
+*   **Safety Barrier**: `activeStorage.clear()` only removes `dev_` keys when in Red Mode, ensuring your real LeetCode history is never wiped by a test script.
+
 ### 🔄 Centralized Synchronization
 The `problem_metadata` store acts as a global lookup for tags and review dates. Any update to a problem's tags triggers a **Sync Loop** that updates:
 1. The master metadata.
@@ -80,11 +88,14 @@ The `problem_metadata` store acts as a global lookup for tags and review dates. 
 4. Enable **"Developer Mode"**.
 5. Click **"Load Unpacked"** and select the project folder.
 
-### Stress Testing
-To test the system with 15,000+ entries:
-1. Click the **"GREEN TIMER"** logo in the extension 5 times rapidly.
-2. Click **"DEV: OPEN STRESS TEST"**.
-3. Run the generator and observe UI performance.
+### Stress Testing & Red Mode
+To verify O(N) performance with 15,000+ entries without affecting your real data:
+1.  Open the **Settings** tab.
+2.  Click the **"GREEN TIMER" logo** 5 times rapidly to reveal the hidden developer tools.
+3.  Click **"DEV: OPEN STRESS TEST"**.
+4.  The system automatically enters **Red Mode** (notice the UI turning red with a "TESTING ENVIRONMENT" banner).
+5.  Run the generator in the new tab; data will be injected into the `dev_` database only.
+6.  Close the tab or remove `?red-mode=1` from the URL to return to your live data.
 
 ### Building for Production
 Always run the build script before uploading to the store:

@@ -2,6 +2,13 @@
 const logEl = document.getElementById('log');
 const statusEl = document.getElementById('status');
 
+// Apply Red Mode branding to test bench
+document.body.style.borderColor = '#ff3b3b';
+document.querySelector('h1').innerHTML += ' <span style="color:#ff3b3b; font-size:0.5em;">(RED MODE)</span>';
+document.getElementById('generateBtn').style.borderColor = '#ff3b3b';
+document.getElementById('generateBtn').style.color = '#ff3b3b';
+document.querySelectorAll('input').forEach(i => i.style.borderColor = '#ff3b3b');
+
 function log(msg) {
     const div = document.createElement('div');
     div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
@@ -10,9 +17,12 @@ function log(msg) {
 
 document.getElementById('clearBtn').onclick = () => {
     if(confirm('Clear all extension data?')) {
-        chrome.storage.local.clear(() => {
-            log('Storage cleared.');
-            statusEl.textContent = 'Storage Empty.';
+        chrome.storage.local.get(null, (allData) => {
+            const toRemove = Object.keys(allData).filter(k => k.startsWith('dev_'));
+            chrome.storage.local.remove(toRemove, () => {
+                log('Dev storage cleared.');
+                statusEl.textContent = 'Dev Storage Empty.';
+            });
         });
     }
 };
@@ -79,9 +89,9 @@ document.getElementById('generateBtn').onclick = () => {
     statusEl.textContent = 'Injecting into Chrome Storage...';
     
     const storageData = {
-        leetcode_history: leetcode_history,
-        problem_metadata: problem_metadata,
-        global_tags: tags
+        dev_leetcode_history: leetcode_history,
+        dev_problem_metadata: problem_metadata,
+        dev_global_tags: tags
     };
 
     chrome.storage.local.set(storageData, () => {

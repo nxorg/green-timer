@@ -8,34 +8,85 @@ const api = (typeof browser !== 'undefined') ? browser : chrome;
 const ANALYTICS_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="13" height="13" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: middle;"><path d="M3 3v18h18"></path><path d="M18 9l-5 5-4-4-3 3"></path></svg>`;
 const storageAPI = (api.storage && api.storage.local) ? api.storage.local : (api.storage ? api.storage.sync : null);
 
+// --- Environment Mode ---
+const isRedMode = window.location.search.includes('red-mode=1') || window.location.pathname.includes('test.html');
+const prefix = isRedMode ? 'dev_' : '';
+
 const activeStorage = {
   get: (keys) => new Promise((res, rej) => {
+    let targetKeys = keys;
+    if (isRedMode && keys !== null) {
+      if (typeof keys === 'string') targetKeys = prefix + keys;
+      else if (Array.isArray(keys)) targetKeys = keys.map(k => prefix + k);
+      else if (typeof keys === 'object') {
+        targetKeys = {};
+        for (let k in keys) targetKeys[prefix + k] = keys[k];
+      }
+    }
+
     if (storageAPI) { 
-      storageAPI.get(keys, d => api.runtime.lastError ? rej(api.runtime.lastError) : res(d || {})); 
+      storageAPI.get(targetKeys, d => {
+        if (api.runtime.lastError) return rej(api.runtime.lastError);
+        if (!isRedMode) return res(d || {});
+        
+        // Strip prefix for Red Mode
+        const stripped = {};
+        for (let k in d) {
+          if (k.startsWith(prefix)) stripped[k.slice(prefix.length)] = d[k];
+        }
+        res(stripped);
+      }); 
     } else {
       const r = {};
       if (keys === null) {
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          try { r[k] = JSON.parse(localStorage.getItem(k)); } catch(e) { r[k] = localStorage.getItem(k); }
+          if (isRedMode && !k.startsWith(prefix)) continue;
+          const finalK = isRedMode ? k.slice(prefix.length) : k;
+          try { r[finalK] = JSON.parse(localStorage.getItem(k)); } catch(e) { r[finalK] = localStorage.getItem(k); }
         }
       } else {
         const ka = Array.isArray(keys) ? keys : [keys];
-        ka.forEach(k => { try { r[k] = JSON.parse(localStorage.getItem(k) || 'null'); } catch(e){ r[k]=null; } });
+        ka.forEach(k => { 
+          const fullK = prefix + k;
+          try { r[k] = JSON.parse(localStorage.getItem(fullK) || 'null'); } catch(e){ r[k]=null; } 
+        });
       }
       res(r);
     }
   }),
   set: (obj) => new Promise((res, rej) => {
+    const targetObj = {};
+    for (let k in obj) targetObj[prefix + k] = obj[k];
+
     if (storageAPI) { 
-      storageAPI.set(obj, () => api.runtime.lastError ? rej(api.runtime.lastError) : res()); 
+      storageAPI.set(targetObj, () => api.runtime.lastError ? rej(api.runtime.lastError) : res()); 
     } else {
-      try { for (let k in obj) localStorage.setItem(k, JSON.stringify(obj[k])); res(); } catch(e) { rej(e); }
+      try { for (let k in targetObj) localStorage.setItem(k, JSON.stringify(targetObj[k])); res(); } catch(e) { rej(e); }
     }
   }),
-  clear: () => new Promise((res, rej) => {
-    if (storageAPI) { storageAPI.clear(() => api.runtime.lastError ? rej(api.runtime.lastError) : res()); }
-    else { localStorage.clear(); res(); }
+  clear: () => new Promise(async (res, rej) => {
+    if (!isRedMode) {
+      if (storageAPI) { storageAPI.clear(() => api.runtime.lastError ? rej(api.runtime.lastError) : res()); }
+      else { localStorage.clear(); res(); }
+      return;
+    }
+
+    // Red Mode: Only clear dev_ keys
+    if (storageAPI) {
+      storageAPI.get(null, (d) => {
+        const toRemove = Object.keys(d).filter(k => k.startsWith(prefix));
+        storageAPI.remove(toRemove, () => api.runtime.lastError ? rej(api.runtime.lastError) : res());
+      });
+    } else {
+      const toRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k.startsWith(prefix)) toRemove.push(k);
+      }
+      toRemove.forEach(k => localStorage.removeItem(k));
+      res();
+    }
   })
 };
 
@@ -1949,9 +2000,18 @@ window.addEventListener('keydown', (e) => {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
+  if (isRedMode) {
+    document.body.classList.add('red-mode');
+    console.log("🛠️ GREEN TIMER: Red Mode (Testing) Active. Using dev_ database.");
+  }
+
   try {
     const verEl = document.getElementById('ext-version');
-    if (verEl) verEl.textContent = 'v' + api.runtime.getManifest().version;
+    if (verEl) {
+      let vText = 'v' + api.runtime.getManifest().version;
+      if (isRedMode) vText += ' (RED MODE)';
+      verEl.textContent = vText;
+    }
   } catch (e) {}
 
   // 1. Migration from sync to local
@@ -1967,11 +2027,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 2. Setup Listeners
   initTabs();
-  
+
   // Developer Easter Egg: Click logo 5 times CONSECUTIVELY to show Stress Test button
-  // Restricted to development mode only
   const manifest = api.runtime.getManifest();
-  const isDevMode = !('update_url' in manifest); // Simple way to check if it's side-loaded vs store
+  const isDevMode = !('update_url' in manifest); 
 
   if (isDevMode) {
     let logoClicks = 0;
@@ -1981,11 +2040,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       logoEl.style.cursor = 'pointer';
       logoEl.addEventListener('click', () => {
         const now = Date.now();
-        if (now - lastClickTime > 1500) logoClicks = 0; 
-        
+        if (now - lastClickTime > 1500) logoClicks = 0;
         logoClicks++;
         lastClickTime = now;
-        
         if (logoClicks === 5) {
           const btn = document.getElementById('open-test-bench');
           if (btn) {
@@ -1996,8 +2053,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
     }
-  }
 
+    const testBenchBtn = document.getElementById('open-test-bench');
+    if (testBenchBtn) {
+      testBenchBtn.addEventListener('click', () => {
+        window.open('test.html?red-mode=1', '_blank');
+      });
+    }
+  }
   const themeBtn = document.getElementById('theme-toggle'); 
   if(themeBtn) themeBtn.addEventListener('click', async () => { 
     document.body.classList.toggle('light-mode'); 
@@ -2320,12 +2383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  const openTestBench = document.getElementById('open-test-bench');
-  if (openTestBench) {
-    openTestBench.addEventListener('click', () => {
-      api.tabs.create({ url: api.runtime.getURL('test.html') });
-    });
-  }
+
 
   const factoryResetBtn = document.getElementById('factory-reset');
   if (factoryResetBtn) factoryResetBtn.addEventListener('click', async () => {

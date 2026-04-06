@@ -118,6 +118,33 @@ body {
   opacity: 1;
 }
 
+body.red-mode {
+  --green: #ff3b3b;
+  --green-deep: #cc0000;
+  --glow: 0 0 10px rgba(255, 59, 59, 0.3);
+}
+
+body.red-mode.light-mode {
+  --green: #cc0000;
+  --green-deep: #990000;
+}
+
+body.red-mode::before {
+  content: 'TESTING ENVIRONMENT (RED MODE)';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--green);
+  color: #fff;
+  font-size: 8px;
+  text-align: center;
+  z-index: 99999;
+  font-weight: bold;
+  letter-spacing: 2px;
+  pointer-events: none;
+}
+
 /* Toggle visibility based on theme */
 body.light-mode #sun-icon { display: none !important; }
 body.light-mode #moon-icon { display: block !important; }

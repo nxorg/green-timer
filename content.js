@@ -28,11 +28,13 @@ function getLeetCodeDetails() {
   let number = "";
   let name = fullTitle;
 
-  // Method 1: Standard Title Parse (e.g., "1. Two Sum")
-  const match = fullTitle.match(/^#?(\d+)[\.\s]+(.*)/);
+  // Method 1: Standard Title Parse (e.g., "1. Two Sum" or "1.Two Sum")
+  const match = fullTitle.match(/^#?(\d+)[.\s]*(.*)/);
   if (match) {
     number = match[1];
     name = match[2].trim();
+    // If name is still empty after removing number, revert name to fullTitle
+    if (!name) name = fullTitle;
   } else if (fullTitle.includes('. ')) {
     const parts = fullTitle.split('. ');
     if (!isNaN(parseInt(parts[0]))) {
@@ -44,7 +46,7 @@ function getLeetCodeDetails() {
   // Method 2: Document Title Fallback
   if (!number) {
     const docTitle = document.title;
-    const docMatch = docTitle.match(/^#?(\d+)[\.\s]+(.*)/);
+    const docMatch = docTitle.match(/^#?(\d+)[.\s]*(.*)/);
     if (docMatch) number = docMatch[1];
   }
 
@@ -54,19 +56,36 @@ function getLeetCodeDetails() {
       const script = document.getElementById('__NEXT_DATA__');
       if (script) {
         const data = JSON.parse(script.textContent);
-        const qData = data.props?.pageProps?.dehydratedState?.queries?.find(q => q.queryKey?.[0] === 'questionTitle');
-        if (qData?.state?.data?.question?.questionFrontendId) {
-          number = qData.state.data.question.questionFrontendId;
-        }
+        // Deep search in NEXT_DATA for questionFrontendId
+        const findFrontendId = (obj) => {
+          if (!obj || typeof obj !== 'object') return null;
+          if (obj.questionFrontendId) return obj.questionFrontendId;
+          for (const key in obj) {
+            const res = findFrontendId(obj[key]);
+            if (res) return res;
+          }
+          return null;
+        };
+        const id = findFrontendId(data.props);
+        if (id) number = id;
       }
     } catch (e) { /* ignore */ }
   }
 
-  // Method 4: DOM Lookup for sibling elements (some UI versions have number separate)
+  // Method 4: DOM Lookup for sibling elements or common labels
   if (!number) {
-    const numEl = document.querySelector('span[class*="question-title"] + span, div[class*="question-title"] span');
-    if (numEl && numEl.innerText.match(/^\d+$/)) {
-      number = numEl.innerText.trim();
+    const possibleNumberEls = document.querySelectorAll('span, div, h4');
+    for (const el of possibleNumberEls) {
+      const txt = el.innerText.trim();
+      if (txt.match(/^\d+$/) && txt.length < 6) {
+        // Check if this number is likely a problem ID (near the title)
+        const rect = el.getBoundingClientRect();
+        const titleRect = titleEl.getBoundingClientRect();
+        if (Math.abs(rect.top - titleRect.top) < 50 && Math.abs(rect.left - titleRect.left) < 100) {
+          number = txt;
+          break;
+        }
+      }
     }
   }
 

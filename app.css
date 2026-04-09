@@ -584,6 +584,24 @@ body.full-page .display { font-size: 4em; padding: 20px; }
 body.full-page .tab-btn { font-size: 0.9em; padding: 12px 6px; }
 body.full-page .logo { font-size: 1.8em; }
 
+/* Confidence Stars */
+.star {
+  font-size: 2em;
+  cursor: pointer;
+  filter: grayscale(1);
+  transition: transform 0.2s, filter 0.2s;
+  opacity: 0.4;
+}
+.star:hover, .star.hover {
+  filter: grayscale(0);
+  opacity: 1;
+  transform: scale(1.2);
+}
+.star.active {
+  filter: grayscale(0);
+  opacity: 1;
+}
+
 /* Modal */
 .modal {
   display: none;

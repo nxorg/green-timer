@@ -36,12 +36,15 @@ Switch to the **Stats Tab** for a high-level view:
 
 ## 3. Intelligent Study Tools
 
-### 🧠 Smart Review Engine (Spaced Repetition)
-Green Timer automatically helps you remember logic. Based on the **Status** you set when finishing:
-*   **Struggled / Hint**: Scheduled for review in **3 Days**.
-*   **Needs Revision**: Scheduled for review in **1 Day**.
-*   **Solved Independently**: Scheduled for review in **7 Days**.
-*   **Action**: When a review is due, a yellow **"REVISIT TODAY"** section appears on your Problems tab.
+### 🧠 Smart Review Engine (Spaced Repetition 2.0)
+Green Timer automatically helps you remember logic using **Confidence Scoring**. When you click **DONE**, a rating modal appears:
+*   ⭐ **1 Star**: Very Low - Scheduled for review in **1 Day**.
+*   ⭐⭐ **2 Stars**: Low - Scheduled for review in **3 Days**.
+*   ⭐⭐⭐ **3 Stars**: Medium - Scheduled for review in **7 Days**.
+*   ⭐⭐⭐⭐ **4 Stars**: High - Scheduled for review in **14 Days**.
+*   ⭐⭐⭐⭐⭐ **5 Stars**: Very High - Scheduled for review in **30 Days** (Mastered).
+
+**Review Reminders**: The extension sends browser notifications when a review is due. A yellow **"REVISIT TODAY"** section also appears on your Problems tab.
 
 ### 🏷️ Smart Tagging
 Categorize your problems using the **TAGS** button.
@@ -62,6 +65,7 @@ Hate watching the clock? Enable **Zen Mode** in Settings.
 Track your time without leaving LeetCode.
 *   A minimalist timer box will appear directly on the LeetCode page.
 *   **Draggable**: Click and drag the box to any position on your screen.
+*   **Live Badge**: The extension icon shows your progress (e.g., `3:1+2` means 3 Solved, 1 Running, 2 Due for Review).
 
 ---
 
@@ -78,7 +82,7 @@ Your data is stored 100% locally on your machine.
 ## ⌨️ Pro Shortcuts
 *   **SPACEBAR**: Starts/Pauses the first active timer or the standalone stopwatch.
 *   **ESC**: Closes any open analytics or tagging modals.
-*   **LOGO CLICK (x5)**: Rapidly click the "Green Timer" logo 5 times to reveal hidden developer stress-test tools.
+*   **DEV MODE**: Append `?red-mode=1` to the URL to access internal stress-test tools.
 
 ---
 **Engineering Innovation for Everyone.**  

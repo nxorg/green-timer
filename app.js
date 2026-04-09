@@ -605,6 +605,7 @@ async function requestLeetCodeTitle() {
 let timerInterval, swInterval, uiInterval, timerTargetTime = 0, swElapsedTime = 0, swStartTime = 0, problems = [], problemStatuses = [], problemStatusColors = {}, currentHistoryFilterStatus = "", currentHistoryFilterTags = [], globalTags = [];
 let problemMetadata = {}; // Store tags/meta by problem key (number or name)
 let taggingContext = { type: '', index: -1 }; // Context for the tag modal
+let confidenceContext = { prob: null, elapsed: 0, rating: 0 }; // Context for confidence modal
 let tagAutocompleteIdx = -1;
 
 const DEFAULT_TAGS = ['Array', 'String', 'Hash Table', 'Dynamic Programming', 'Math', 'Sorting', 'Greedy', 'Depth-First Search', 'Binary Search', 'Breadth-First Search', 'Tree', 'Matrix', 'Two Pointers', 'Binary Tree', 'Stack', 'Design', 'Backtracking', 'Graph', 'Linked List', 'Bit Manipulation', 'Heap (Priority Queue)', 'Sliding Window', 'Union Find', 'Counting', 'Trie', 'Monotonic Stack', 'Recursion', 'Divide and Conquer', 'Queue', 'Memoization', 'Binary Search Tree'];
@@ -615,6 +616,7 @@ let appSettings = {
   soundEnabled: true,
   autoAdd: false,
   autoStart: false,
+  srsEnabled: true,
   dailyGoal: 3,
   startupView: 'last', // 'last' or 'stopwatch'
   zenMode: false,
@@ -867,6 +869,20 @@ function renderSettings() {
     if (!autoStartInp.dataset.listenerAdded) {
       autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
       autoStartInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const srsEnabledInp = document.getElementById('setting-srs-enabled');
+  if (srsEnabledInp) {
+    srsEnabledInp.checked = appSettings.srsEnabled !== false;
+    if (!srsEnabledInp.dataset.listenerAdded) {
+      srsEnabledInp.addEventListener('change', (e) => { 
+        appSettings.srsEnabled = e.target.checked; 
+        saveSettings(); 
+        // Update badge and reminders immediately if background is available
+        if (api.runtime.sendMessage) api.runtime.sendMessage({ type: 'settings_updated' });
+      });
+      srsEnabledInp.dataset.listenerAdded = "true";
     }
   }
 
@@ -1376,7 +1392,7 @@ function getFlatHistory() {
   return cachedFlatHistory;
 }
 
-async function logToHistory(prob, elapsed) {
+async function logToHistory(prob, elapsed, confidence = 0) {
   cachedFlatHistory = null; // Invalidate cache
   const d = await activeStorage.get('leetcode_history');
   let h = migrateHistory(d.leetcode_history || []);
@@ -1389,7 +1405,8 @@ async function logToHistory(prob, elapsed) {
     timeStr: formatTime(elapsed, true),
     elapsedMs: elapsed,
     timestamp: Date.now(),
-    notes: prob.notes || ""
+    notes: prob.notes || "",
+    confidence: confidence
   };
 
   if (existingProb) {
@@ -1416,20 +1433,26 @@ async function logToHistory(prob, elapsed) {
   const status = prob.status;
   let reviewDelayDays = 0;
   
-  // Logic: 
-  // If Struggled/Hint -> Review in 3 days
-  // If Solved Independently but not Mastered -> Review in 7 days
-  // If Needs Revision -> Review in 1 day
-  if (status === 'Struggled' || status === 'Hint-Assisted') reviewDelayDays = 3;
-  else if (status === 'Needs Revision' || status === 'Edge-Case Issues') reviewDelayDays = 1;
-  else if (status === 'Solved Independently') reviewDelayDays = 7;
+  // Logic 2.0: Use confidence if available, else fallback to status
+  if (confidence > 0) {
+    if (confidence === 1) reviewDelayDays = 1;
+    else if (confidence === 2) reviewDelayDays = 3;
+    else if (confidence === 3) reviewDelayDays = 7;
+    else if (confidence === 4) reviewDelayDays = 14;
+    else if (confidence === 5) reviewDelayDays = 30;
+  } else {
+    // Legacy status-based logic
+    if (status === 'Struggled' || status === 'Hint-Assisted') reviewDelayDays = 3;
+    else if (status === 'Needs Revision' || status === 'Edge-Case Issues') reviewDelayDays = 1;
+    else if (status === 'Solved Independently') reviewDelayDays = 7;
+  }
   
-  if (reviewDelayDays > 0) {
+  if (reviewDelayDays > 0 && status !== 'Mastered') {
     const nextReview = Date.now() + (reviewDelayDays * 86400000);
     problemMetadata[metaKey].nextReview = nextReview;
     await activeStorage.set({ problem_metadata: problemMetadata });
-  } else if (status === 'Mastered') {
-    // Clear review if mastered
+  } else if (status === 'Mastered' || (confidence === 5 && status !== 'Struggled')) {
+    // Clear review if mastered or very high confidence (unless specifically struggling)
     delete problemMetadata[metaKey].nextReview;
     await activeStorage.set({ problem_metadata: problemMetadata });
   }
@@ -2099,6 +2122,9 @@ function initDevBench() {
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', async () => {
+  // Sync environment mode for content scripts
+  if (storageAPI) storageAPI.set({ env_mode: isRedMode ? 'red' : 'green' });
+
   if (isRedMode) {
     document.body.classList.add('red-mode');
     console.log("🛠️ GREEN TIMER: Red Mode (Testing) Active. Using dev_ database.");
@@ -2251,7 +2277,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (action === 'toggle') { if (p.isRunning) { p.elapsed = Date.now() - p.startTime; p.isRunning = false; } else { p.startTime = Date.now() - p.elapsed; p.isRunning = true; } } 
     else if (action === 'reset') { p.elapsed = 0; p.isRunning = false; } 
     else if (action === 'delete') problems.splice(i, 1); 
-    else if (action === 'finish') { const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed; await logToHistory(p, f); problems.splice(i, 1); } 
+    else if (action === 'finish') { 
+      const f = p.isRunning ? (Date.now() - p.startTime) : p.elapsed;
+      if (appSettings.srsEnabled) {
+        confidenceContext = { prob: {...p}, elapsed: f, index: i };
+        const modal = document.getElementById('confidence-modal');
+        if (modal) {
+          // Reset stars
+          document.querySelectorAll('.confidence-stars .star').forEach(s => s.classList.remove('active'));
+          document.getElementById('confidence-desc').textContent = 'Select a rating';
+          confidenceContext.rating = 0;
+          modal.classList.add('show');
+        }
+      } else {
+        // SRS disabled, log directly with 0 confidence
+        await logToHistory(p, f, 0);
+        problems.splice(i, 1);
+        await saveProblems();
+        renderProblems();
+      }
+    } 
     else if (action === 'analytics') showProblemAnalytics(p.name, p.number); 
     else if (action === 'toggle-tags') p.showTags = !p.showTags; 
     else if (action === 'open-tag-modal') openTagModal('active', i); 
@@ -2261,6 +2306,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (action === 'toggle-notes' && p && p.showNotes) { const ta = document.querySelector(`#notes-section-${i} textarea`); if (ta) ta.focus(); } 
     startUIInterval(); 
   });
+
+  // --- Confidence Modal Listeners ---
+  const confModal = document.getElementById('confidence-modal');
+  const confStars = document.querySelectorAll('.confidence-stars .star');
+  const confDesc = document.getElementById('confidence-desc');
+  const saveConfBtn = document.getElementById('save-confidence-btn');
+  const closeConfBtn = document.getElementById('close-confidence');
+
+  const ratings = {
+    1: "Very Low - Review in 1 day",
+    2: "Low - Review in 3 days",
+    3: "Medium - Review in 7 days",
+    4: "High - Review in 14 days",
+    5: "Very High - Mastered (30 days)"
+  };
+
+  confStars.forEach(star => {
+    star.addEventListener('mouseenter', () => {
+      const val = parseInt(star.dataset.value);
+      confStars.forEach(s => s.classList.toggle('hover', parseInt(s.dataset.value) <= val));
+      confDesc.textContent = ratings[val];
+    });
+    star.addEventListener('mouseleave', () => {
+      confStars.forEach(s => s.classList.remove('hover'));
+      confDesc.textContent = ratings[confidenceContext.rating] || 'Select a rating';
+    });
+    star.addEventListener('click', () => {
+      confidenceContext.rating = parseInt(star.dataset.value);
+      confStars.forEach(s => s.classList.toggle('active', parseInt(s.dataset.value) <= confidenceContext.rating));
+    });
+  });
+
+  if (saveConfBtn) {
+    saveConfBtn.addEventListener('click', async () => {
+      if (confidenceContext.rating === 0) {
+        alert("Please select a confidence rating!");
+        return;
+      }
+      await logToHistory(confidenceContext.prob, confidenceContext.elapsed, confidenceContext.rating);
+      problems.splice(confidenceContext.index, 1);
+      await saveProblems();
+      renderProblems();
+      confModal.classList.remove('show');
+    });
+  }
+
+  if (closeConfBtn) {
+    closeConfBtn.addEventListener('click', () => {
+      confModal.classList.remove('show');
+    });
+  }
   
   const importBtn = document.getElementById('import-btn'); 
   if(importBtn) {
@@ -2384,6 +2480,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!autoStartInp.dataset.listenerAdded) {
       autoStartInp.addEventListener('change', (e) => { appSettings.autoStart = e.target.checked; saveSettings(); });
       autoStartInp.dataset.listenerAdded = "true";
+    }
+  }
+
+  const srsEnabledInp = document.getElementById('setting-srs-enabled');
+  if (srsEnabledInp) {
+    srsEnabledInp.checked = appSettings.srsEnabled !== false;
+    if (!srsEnabledInp.dataset.listenerAdded) {
+      srsEnabledInp.addEventListener('change', (e) => { 
+        appSettings.srsEnabled = e.target.checked; 
+        saveSettings(); 
+        // Update badge and reminders immediately if background is available
+        if (api.runtime.sendMessage) api.runtime.sendMessage({ type: 'settings_updated' });
+      });
+      srsEnabledInp.dataset.listenerAdded = "true";
     }
   }
 

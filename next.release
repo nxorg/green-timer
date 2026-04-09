@@ -1,0 +1,25 @@
+▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+✦ For v1.6.0, we shift focus to "Intelligence & Personal Benchmarks". After solidifying SRS 2.0 in v1.5.0, we will now help users visualize their growth and speed.
+
+  🧠 1. Smart Difficulty Analysis
+   - Adaptive Goals: Automatically suggest a "Daily Goal" (e.g., 1 Hard, 2 Mediums) based on your last 7 days of performance.
+   - Time-to-Solve Benchmarks: Compare your current speed against your personal average for that specific difficulty (Easy/Med/Hard) in real-time.
+
+  📊 2. "Weak Point" Radar (Weakness Detection)
+   - Tag-Based Insights: A new section in the Stats tab that identifies which topics (e.g., "Dynamic Programming", "Graphs") have the highest average solve time or lowest "Mastered" rate.
+   - Topic Progress Bars: Visual indicators showing your "Mastery Level" for different LeetCode tags based on your history.
+
+  🚀 3. Speed-Run Mode (Mock Interview Prep)
+   - Session Goals: Set a goal to solve X problems in Y minutes (e.g., "Mock Contest Mode").
+   - Live HUD Countdown: The floating HUD can switch from a stopwatch to a "Time Remaining" countdown for the current session.
+
+  🌗 4. UI Polishing & Customization
+   - Compact View: A "Mini-HUD" mode for the main extension that hides all tabs except the active problem timers for distraction-free work.
+   - Custom Themes: Allow users to pick their own "Primary Color" (currently fixed to Green/Red).
+
+  ---
+  ✅ COMPLETED IN v1.5.0:
+  - Confidence-Based Spaced Repetition (SRS 2.0).
+  - Background Review Reminders & Notifications.
+  - Context-Aware Icon Badge (Solved:Running+Due).
+  - Environment Isolation (Red Mode) & Integrated Dev Bench.

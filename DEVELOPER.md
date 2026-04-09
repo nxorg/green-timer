@@ -35,13 +35,14 @@ interface Submission {
   elapsedMs: number;
   timestamp: number;
   notes: string;
+  confidence: number; // 1-5 SRS score
 }
 ```
 
 ### 🛡️ Environment Isolation (Database Partitioning)
 The extension implements a strict **Red Mode (Testing)** vs **Green Mode (Live)** isolation at the storage layer to prevent accidental data corruption during development.
 
-*   **Active Mode**: Detected via `red-mode=1` URL parameter or `test.html` pathname.
+*   **Active Mode**: Detected via `red-mode=1` URL parameter.
 *   **Key Prefixing**: In Red Mode, `activeStorage` automatically prefixes all keys with `dev_` (e.g., `dev_leetcode_history`).
 *   **Data Stripping**: When reading data in Red Mode, the `dev_` prefix is transparently stripped so the app logic remains unchanged.
 *   **Safety Barrier**: `activeStorage.clear()` only removes `dev_` keys when in Red Mode, ensuring your real LeetCode history is never wiped by a test script.
@@ -56,10 +57,9 @@ The `problem_metadata` store acts as a global lookup for tags and review dates. 
 
 ## 3. Project Structure
 
-*   `app.html / app.js / app.css`: The primary User Interface (Popup/Dashboard).
+*   `app.html / app.js / app.css`: The primary User Interface (Popup/Dashboard). Includes the **Dev Bench** tab (Red Mode only).
 *   `content.js`: The "Sniffer" and "HUD". Detects LeetCode titles/tags and injects the floating timer.
-*   `background.js`: Handles alarms (daily reminders), badges (counts), and cross-page state monitoring.
-*   `stress.js / test.html`: Internal stress-test tools (excluded from production builds).
+*   `background.js`: Handles alarms (daily reminders, SRS notifications), badges (counts), and cross-page state monitoring.
 *   `build.sh`: Automated packaging script for store deployment.
 
 ---
@@ -105,7 +105,6 @@ Always run the build script before uploading to the store:
 The script automatically:
 *   Extracts the version from `manifest.json`.
 *   Cleans the `dist/` directory.
-*   Excludes dev tools (`test.html`, `stress.js`).
 *   Packages a production-ready `.zip`.
 
 ---

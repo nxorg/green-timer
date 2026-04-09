@@ -327,6 +327,10 @@
             <span style="font-size: 0.75em; font-weight: bold;">Auto-Start Timer</span>
             <input type="checkbox" id="setting-auto-start" style="width: 20px; height: 20px; cursor: pointer;">
           </div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.75em; font-weight: bold;">Review Reminders (SRS 2.0)</span>
+            <input type="checkbox" id="setting-srs-enabled" style="width: 20px; height: 20px; cursor: pointer;">
+          </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
             <span style="font-size: 0.75em; font-weight: bold;">Zen Mode (Hide Numbers)</span>
             <input type="checkbox" id="setting-zen-mode" style="width: 20px; height: 20px; cursor: pointer;">
@@ -495,6 +499,27 @@
       </div>
     </div>
   </div>
+  <div id="confidence-modal" class="modal">
+    <div class="modal-content" style="max-width: 350px; text-align: center;">
+      <div class="modal-header">
+        <h2>Rate Your Confidence</h2>
+        <button id="close-confidence" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.8em; opacity: 0.8; margin-bottom: 20px;">How well did you understand the solution? This helps us schedule your next review.</p>
+        <div class="confidence-stars" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 25px;">
+          <span class="star" data-value="1" title="Very Low (Review Soon)">⭐</span>
+          <span class="star" data-value="2" title="Low">⭐</span>
+          <span class="star" data-value="3" title="Medium">⭐</span>
+          <span class="star" data-value="4" title="High">⭐</span>
+          <span class="star" data-value="5" title="Very High (Mastered)">⭐</span>
+        </div>
+        <div id="confidence-desc" style="font-size: 0.7em; color: var(--green); height: 1.2em; margin-bottom: 20px; font-weight: bold;">Select a rating</div>
+        <button id="save-confidence-btn" class="btn-main" style="width: 100%;">FINISH & SCHEDULE</button>
+      </div>
+    </div>
+  </div>
+
   <div id="analytics-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">

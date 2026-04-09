@@ -208,12 +208,22 @@ window.addEventListener('mouseup', () => {
 });
 }
 
+// Listen for storage changes
+chrome.storage.onChanged.addListener(() => updateHUD());
+
+let hudTaskCounter = 0;
 function updateHUD() {
   const currentDetails = getLeetCodeDetails();
-  if (hudInterval) { clearInterval(hudInterval); hudInterval = null; }
-  chrome.storage.local.get(['leetcode_problems', 'app_settings'], (data) => {
-    const settings = data.app_settings || {};
-    const problems = data.leetcode_problems || [];
+  const currentTaskId = ++hudTaskCounter;
+
+  chrome.storage.local.get(['leetcode_problems', 'app_settings', 'env_mode', 'dev_leetcode_problems', 'dev_app_settings'], (data) => {
+    // Check if this is still the latest task
+    if (currentTaskId !== hudTaskCounter) return;
+
+    const isRed = data.env_mode === 'red';
+    const prefix = isRed ? 'dev_' : '';
+    const settings = data[prefix + 'app_settings'] || {};
+    const problems = data[prefix + 'leetcode_problems'] || [];
     const currentUrl = window.location.href.split('?')[0].split('#')[0];
     
     // Smart Matching: 
@@ -238,8 +248,12 @@ function updateHUD() {
 
       // Update Control Button and Dot
       controlEl.textContent = activeProb.isRunning ? 'PAUSE' : 'START';
-      dotEl.style.background = activeProb.isRunning ? '#00ff00' : '#555';
-      dotEl.style.boxShadow = activeProb.isRunning ? '0 0 5px #00ff00' : 'none';
+      dotEl.style.background = activeProb.isRunning ? (isRed ? '#ff3b3b' : '#00ff00') : '#555';
+      dotEl.style.boxShadow = activeProb.isRunning ? `0 0 5px ${isRed ? '#ff3b3b' : '#00ff00'}` : 'none';
+      hudElement.style.borderColor = isRed ? '#ff3b3b' : '#00ff00';
+      hudElement.style.color = isRed ? '#ff3b3b' : '#00ff00';
+      controlEl.style.borderColor = isRed ? '#ff3b3b' : '#00ff00';
+      controlEl.style.background = isRed ? 'rgba(255,59,59,0.1)' : 'rgba(0,255,0,0.1)';
 
       // Apply saved position if exists AND not currently dragging
       if (settings.hudPos && !isDragging) {
@@ -262,7 +276,7 @@ function updateHUD() {
         dotEl.style.display = 'block';
         controlEl.style.display = 'block';
         toggleEl.innerHTML = '«';
-        toggleEl.style.borderLeft = '1px solid rgba(0,255,0,0.2)';
+        toggleEl.style.borderLeft = `1px solid ${isRed ? 'rgba(255,59,59,0.2)' : 'rgba(0,255,0,0.2)'}`;
         toggleEl.title = "Collapse HUD";
         hudElement.style.padding = '8px 12px';
       }
@@ -291,14 +305,6 @@ function updateHUD() {
     }
   });
 }
-
-function broadcast() {
-  const details = getLeetCodeDetails();
-  if (details) chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
-}
-
-// Listen for storage changes
-chrome.storage.onChanged.addListener(() => updateHUD());
 
 // Optimization: Use Observer instead of Interval
 const observer = new MutationObserver(() => { broadcast(); updateHUD(); });

@@ -12,6 +12,7 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 ## 🛡️ Security & Environment Standards
 *   **Mandate**: Never use `innerHTML` for dynamic content or user-provided data.
 *   **Environment Isolation**: Red Mode (Testing) must strictly use `dev_` prefixed storage keys via the `activeStorage` layer to protect Live data.
+*   **SRS 2.0**: Spaced Repetition must use confidence-based scheduling (1-5 stars) to determine review intervals.
 *   **Pattern**: Use `document.createTextNode()` or `element.textContent` for all notes, names, and tags.
 *   **SVG Injection**: Use the `injectAnalyticsIcon(parent)` helper for secure SVG rendering.
 
@@ -31,4 +32,4 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 *   **Packaging**: Always use `./build.sh`.
 
 ---
-*Updated at v1.4.0 - Engineering Innovation for Everyone.*
+*Updated at v1.5.0 - Engineering Innovation for Everyone.*

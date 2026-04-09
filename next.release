@@ -1,5 +1,5 @@
 ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
-✦ For v1.6.0, we shift focus to "Intelligence & Personal Benchmarks". After solidifying SRS 2.0 in v1.5.0, we will now help users visualize their growth and speed.
+✦ For v1.6.0, we shift focus to "Intelligence & Personal Benchmarks". After solidifying SRS 2.0 in v1.5.7, we will now help users visualize their growth and speed.
 
   🧠 1. Smart Difficulty Analysis
    - Adaptive Goals: Automatically suggest a "Daily Goal" (e.g., 1 Hard, 2 Mediums) based on your last 7 days of performance.
@@ -18,7 +18,7 @@
    - Custom Themes: Allow users to pick their own "Primary Color" (currently fixed to Green/Red).
 
   ---
-  ✅ COMPLETED IN v1.5.0:
+  ✅ COMPLETED IN v1.5.7:
   - Confidence-Based Spaced Repetition (SRS 2.0).
   - Background Review Reminders & Notifications.
   - Context-Aware Icon Badge (Solved:Running+Due).

@@ -32,4 +32,4 @@ This document serves as the "Source of Truth" for the architecture, coding stand
 *   **Packaging**: Always use `./build.sh`.
 
 ---
-*Updated at v1.5.0 - Engineering Innovation for Everyone.*
+*Updated at v1.5.7 - Engineering Innovation for Everyone.*

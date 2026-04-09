@@ -28,20 +28,46 @@ function getLeetCodeDetails() {
   let number = "";
   let name = fullTitle;
 
+  // Method 1: Standard Title Parse (e.g., "1. Two Sum")
   const match = fullTitle.match(/^#?(\d+)[\.\s]+(.*)/);
   if (match) {
     number = match[1];
     name = match[2].trim();
   } else if (fullTitle.includes('. ')) {
     const parts = fullTitle.split('. ');
-    number = parts[0];
-    name = parts.slice(1).join('. ');
+    if (!isNaN(parseInt(parts[0]))) {
+      number = parts[0];
+      name = parts.slice(1).join('. ');
+    }
   }
 
+  // Method 2: Document Title Fallback
   if (!number) {
     const docTitle = document.title;
     const docMatch = docTitle.match(/^#?(\d+)[\.\s]+(.*)/);
     if (docMatch) number = docMatch[1];
+  }
+
+  // Method 3: Script Data Fallback (__NEXT_DATA__)
+  if (!number) {
+    try {
+      const script = document.getElementById('__NEXT_DATA__');
+      if (script) {
+        const data = JSON.parse(script.textContent);
+        const qData = data.props?.pageProps?.dehydratedState?.queries?.find(q => q.queryKey?.[0] === 'questionTitle');
+        if (qData?.state?.data?.question?.questionFrontendId) {
+          number = qData.state.data.question.questionFrontendId;
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // Method 4: DOM Lookup for sibling elements (some UI versions have number separate)
+  if (!number) {
+    const numEl = document.querySelector('span[class*="question-title"] + span, div[class*="question-title"] span');
+    if (numEl && numEl.innerText.match(/^\d+$/)) {
+      number = numEl.innerText.trim();
+    }
   }
 
   let difficulty = "";
@@ -304,6 +330,11 @@ function updateHUD() {
       if (hudInterval) { clearInterval(hudInterval); hudInterval = null; }
     }
   });
+}
+
+function broadcast() {
+  const details = getLeetCodeDetails();
+  if (details) chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
 }
 
 // Optimization: Use Observer instead of Interval

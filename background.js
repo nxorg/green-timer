@@ -12,11 +12,11 @@ function getDateKey(val) {
 }
 
 // Function to update the icon badge with Solved and Running counts
-async function updateBadge() {
+async function updateBadge(overrideIsRed = null) {
   const storage = chrome.storage.local || chrome.storage.sync;
   const data = await storage.get(['leetcode_history', 'leetcode_problems', 'problem_metadata', 'app_settings', 'env_mode', 'dev_leetcode_history', 'dev_leetcode_problems', 'dev_problem_metadata', 'dev_app_settings']);
   
-  const isRed = data.env_mode === 'red';
+  const isRed = overrideIsRed !== null ? overrideIsRed : (data.env_mode === 'red');
   const prefix = isRed ? 'dev_' : '';
   
   const settings = data[prefix + 'app_settings'] || {};
@@ -68,8 +68,10 @@ async function updateBadge() {
 
 // Handle Messages
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'settings_updated' || msg.type === 'leetcode_details') {
+  if (msg.type === 'settings_updated') {
     updateBadge();
+  } else if (msg.type === 'leetcode_details') {
+    updateBadge(msg.isRed);
   }
 });
 

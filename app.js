@@ -1053,7 +1053,19 @@ function renderProblems() {
     const title = document.createElement('div');
     title.className = 'problem-list-title';
     title.title = dn;
-    if (p.url) { const a = document.createElement('a'); a.href = p.url; a.target = '_blank'; a.textContent = dn; a.title = dn; title.appendChild(a); } else title.textContent = dn;
+    
+    const titleLink = document.createElement('a');
+    if (p.url) { titleLink.href = p.url; titleLink.target = '_blank'; }
+    titleLink.title = dn;
+    
+    if (p.number) {
+      const numSpan = document.createElement('span');
+      numSpan.className = 'problem-number';
+      numSpan.textContent = p.number + ". ";
+      titleLink.appendChild(numSpan);
+    }
+    titleLink.appendChild(document.createTextNode(p.name));
+    title.appendChild(titleLink);
     
     const actionButtons = document.createElement('div');
     actionButtons.style.display = 'flex';
@@ -1591,7 +1603,19 @@ function filterHistory(limit = 50) {
     const title = document.createElement('div');
     title.className = 'log-entry-title';
     title.title = fullDn;
-    if (i.url) { const a = document.createElement('a'); a.href = i.url; a.target = '_blank'; a.textContent = dn; a.title = fullDn; title.appendChild(a); } else title.textContent = dn;
+    
+    const titleLink = document.createElement('a');
+    if (i.url) { titleLink.href = i.url; titleLink.target = '_blank'; }
+    titleLink.title = fullDn;
+    
+    if (i.number) {
+      const numSpan = document.createElement('span');
+      numSpan.className = 'problem-number';
+      numSpan.textContent = i.number + ". ";
+      titleLink.appendChild(numSpan);
+    }
+    titleLink.appendChild(document.createTextNode(i.name.length > 50 ? i.name.substring(0, 47) + "..." : i.name));
+    title.appendChild(titleLink);
     
     const actionButtons = document.createElement('div');
     actionButtons.style.display = 'flex';

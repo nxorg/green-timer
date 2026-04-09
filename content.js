@@ -142,8 +142,10 @@ function createHUD() {
     e.stopPropagation();
     const currentUrl = window.location.href.split('?')[0].split('#')[0];
     const details = getLeetCodeDetails();
-    chrome.storage.local.get(['leetcode_problems'], (data) => {
-      const problems = data.leetcode_problems || [];
+    chrome.storage.local.get(['env_mode', 'leetcode_problems', 'dev_leetcode_problems'], (data) => {
+      const isRed = data.env_mode === 'red';
+      const key = (isRed ? 'dev_' : '') + 'leetcode_problems';
+      const problems = data[key] || [];
       const idx = problems.findIndex(p => {
         if (details) {
           if (p.number && details.number && p.number === details.number) return true;
@@ -160,7 +162,9 @@ function createHUD() {
           p.startTime = Date.now() - p.elapsed;
           p.isRunning = true;
         }
-        chrome.storage.local.set({ leetcode_problems: problems });
+        const update = {};
+        update[key] = problems;
+        chrome.storage.local.set(update);
       }
     });
   };
@@ -346,7 +350,15 @@ function updateHUD() {
 
 function broadcast() {
   const details = getLeetCodeDetails();
-  if (details) chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
+  if (details) {
+    chrome.storage.local.get(['env_mode'], (data) => {
+      chrome.runtime.sendMessage({ 
+        type: 'leetcode_details', 
+        details, 
+        isRed: data.env_mode === 'red' 
+      }).catch(() => {});
+    });
+  }
 }
 
 // Optimization: Use Observer instead of Interval with Debounce

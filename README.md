@@ -62,6 +62,7 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
 2. Click **"Load Temporary Add-on..."**.
 3. Select the `manifest.json` from this project folder.
+4. **Developer Hub:** [Firefox Add-on Settings](https://addons.mozilla.org/en-US/developers/addon/green-code/edit)
 
 ### For Chrome / Edge / Brave
 1. Open `chrome://extensions/`.

@@ -103,7 +103,10 @@ let hudInterval = null;
 let isDragging = false;
 
 function createHUD() {
-  if (hudElement) return;
+  if (hudElement || document.getElementById('green-code-hud')) {
+    if (!hudElement) hudElement = document.getElementById('green-code-hud');
+    return;
+  }
   
   hudElement = document.createElement('div');
   hudElement.id = 'green-code-hud';
@@ -242,6 +245,14 @@ function updateHUD() {
   const currentDetails = getLeetCodeDetails();
   const currentTaskId = ++hudTaskCounter;
 
+  // Cleanup: Ensure ONLY ONE HUD exists in the DOM at any time
+  const existingHuds = document.querySelectorAll('#green-code-hud');
+  if (existingHuds.length > 1) {
+    for (let i = 1; i < existingHuds.length; i++) {
+      existingHuds[i].remove();
+    }
+  }
+
   chrome.storage.local.get(['leetcode_problems', 'app_settings', 'env_mode', 'dev_leetcode_problems', 'dev_app_settings'], (data) => {
     // Check if this is still the latest task
     if (currentTaskId !== hudTaskCounter) return;
@@ -255,12 +266,13 @@ function updateHUD() {
     // Smart Matching: 
     // 1. Try to match by Number/Name first (most reliable)
     // 2. Fallback to URL match
+    // 3. IMPORTANT: Priority goes to any problem that is CURRENTLY RUNNING
     const activeProb = problems.find(p => {
-      if (currentDetails) {
-        if (p.number && currentDetails.number && p.number === currentDetails.number) return true;
-        if (p.name && currentDetails.name && p.name === currentDetails.name) return true;
-      }
-      return p.url === currentUrl;
+      const isMatch = (currentDetails && ((p.number && currentDetails.number && p.number === currentDetails.number) || (p.name && currentDetails.name && p.name === currentDetails.name))) || (p.url === currentUrl);
+      return isMatch && p.isRunning;
+    }) || problems.find(p => {
+      const isMatch = (currentDetails && ((p.number && currentDetails.number && p.number === currentDetails.number) || (p.name && currentDetails.name && p.name === currentDetails.name))) || (p.url === currentUrl);
+      return isMatch;
     });
     
     if (activeProb && settings.showHUD !== false) {
@@ -337,13 +349,25 @@ function broadcast() {
   if (details) chrome.runtime.sendMessage({ type: 'leetcode_details', details }).catch(() => {});
 }
 
-// Optimization: Use Observer instead of Interval
-const observer = new MutationObserver(() => { broadcast(); updateHUD(); });
+// Optimization: Use Observer instead of Interval with Debounce
+let observerTimeout = null;
+const observer = new MutationObserver(() => { 
+  clearTimeout(observerTimeout);
+  observerTimeout = setTimeout(() => {
+    if (window.location.href.includes('leetcode.com/problems/')) {
+      broadcast(); 
+      updateHUD(); 
+    }
+  }, 500);
+});
+
 const targetNode = document.body;
 if (targetNode) observer.observe(targetNode, { childList: true, subtree: true });
 
-broadcast();
-updateHUD();
+if (window.location.href.includes('leetcode.com/problems/')) {
+  broadcast();
+  updateHUD();
+}
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'get_leetcode_details') sendResponse(getLeetCodeDetails());

@@ -212,9 +212,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
           });
           
           let message = `Saved "${latest.name}". This is your #${todayCount} problem today!`;
-          if (latestProblemTodayCount > 1) {
-            message += ` (Already completed ${latestProblemTodayCount - 1} time(s) today!)`;
-          }
           
           chrome.notifications.create({
             type: 'basic',

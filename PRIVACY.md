@@ -1,4 +1,4 @@
-# Privacy Policy for Green Timer & Stopwatch
+# Privacy Policy for Green Code
 
 **PROMISE: All data is stored in Local/Sync Storage of browsers, and not sent anywhere.**
 
@@ -13,4 +13,4 @@
 - No data is shared with third parties.
 
 ### Contact
-If you have any questions, please contact the developer through the GitHub repository: https://github.com/nxorg/green-timer
+If you have any questions, please contact the developer through the GitHub repository: https://github.com/nxorg/green-code

@@ -1,4 +1,4 @@
-# Green Timer & Stopwatch
+# Green Code
 
 **Engineering Innovation for Everyone**
 
@@ -74,7 +74,7 @@ A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-de
 
 This project is licensed under the **GNU General Public License v3.0 (GPLv3)**.
 
-- **Source Code:** [https://github.com/nxorg/green-timer](https://github.com/nxorg/green-timer)
+- **Source Code:** [https://github.com/nxorg/green-code](https://github.com/nxorg/green-code)
 - **Organization:** [https://nxorg.xchip.in/](https://nxorg.xchip.in/)
 - **Creator:** [Manoj Kumar](https://manoj.xchip.in)
 

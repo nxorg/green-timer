@@ -1,5 +1,5 @@
 /*
- * Green Timer & Stopwatch
+ * Green Code
  * Copyright (C) 2026 Manoj Kumar
  * GPLv3 License
  */

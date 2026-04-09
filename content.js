@@ -1,5 +1,5 @@
 /*
- * Green Timer & Stopwatch
+ * Green Code
  * Copyright (C) 2026 Manoj Kumar
  * GPLv3 License
  */
@@ -66,7 +66,7 @@ function getLeetCodeDetails() {
       const container = document.querySelector('div[data-key="topic-tags"]');
       if (container) tags = Array.from(container.querySelectorAll('a')).map(el => el.innerText.trim()).filter(t => t !== "");
     }
-  } catch (e) { console.error("Green Timer: Tag detection error", e); }
+  } catch (e) { console.error("Green Code: Tag detection error", e); }
 
   return { number, name, difficulty, url: window.location.href.split('?')[0].split('#')[0], tags };
 }
@@ -80,7 +80,7 @@ function createHUD() {
   if (hudElement) return;
   
   hudElement = document.createElement('div');
-  hudElement.id = 'green-timer-hud';
+  hudElement.id = 'green-code-hud';
   hudElement.style.cssText = `
     position: fixed; top: 60px; right: 20px;
     background: rgba(10, 10, 10, 0.9); border: 1px solid #00ff00;

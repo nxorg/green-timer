@@ -1,6 +1,6 @@
-# Green Timer - Developer Documentation 🛠️
+# Green Code - Developer Documentation 🛠️
 
-Welcome to the internal engineering guide for **Green Timer & Stopwatch**. This document explains the technical architecture, data patterns, and development workflows used in this project.
+Welcome to the internal engineering guide for **Green Code**. This document explains the technical architecture, data patterns, and development workflows used in this project.
 
 ---
 

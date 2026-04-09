@@ -1,13 +1,13 @@
-# Green Timer - The Master User Guide 📗
+# Green Code - The Master User Guide 📗
 
-Welcome to **Green Timer & Stopwatch**. This guide will help you master every feature of your new productivity hub to ensure you dominate your technical interviews with discipline and data.
+Welcome to **Green Code**. This guide will help you master every feature of your new productivity hub to ensure you dominate your technical interviews with discipline and data.
 
 ---
 
 ## 1. Core Workflow: Tracking Problems
 
 ### 🔍 Auto-Detection
-Green Timer automatically "sniffs" the LeetCode page you are on. 
+Green Code automatically "sniffs" the LeetCode page you are on. 
 *   **Manual Add**: Type the problem name or number in the input box and click **ADD**.
 *   **Smart Add**: Enable **"Auto-Add"** in Settings to have problems added the moment you open them on LeetCode.
 
@@ -37,7 +37,7 @@ Switch to the **Stats Tab** for a high-level view:
 ## 3. Intelligent Study Tools
 
 ### 🧠 Smart Review Engine (Spaced Repetition 2.0)
-Green Timer automatically helps you remember logic using **Confidence Scoring**. When you click **DONE**, a rating modal appears:
+Green Code automatically helps you remember logic using **Confidence Scoring**. When you click **DONE**, a rating modal appears:
 *   ⭐ **1 Star**: Very Low - Scheduled for review in **1 Day**.
 *   ⭐⭐ **2 Stars**: Low - Scheduled for review in **3 Days**.
 *   ⭐⭐⭐ **3 Stars**: Medium - Scheduled for review in **7 Days**.
@@ -49,7 +49,7 @@ Green Timer automatically helps you remember logic using **Confidence Scoring**.
 ### 🏷️ Smart Tagging
 Categorize your problems using the **TAGS** button.
 *   **Consistency**: Use the centralized library to prevent duplicates.
-*   **Auto-Fetching**: Green Timer automatically pulls topic tags from LeetCode.
+*   **Auto-Fetching**: Green Code automatically pulls topic tags from LeetCode.
 *   **Filtering**: Go to the **History** tab, click **FILTERS**, and select multiple tags to find specific practice sets (e.g., "Hard" + "Graph").
 
 ---

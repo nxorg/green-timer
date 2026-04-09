@@ -1,6 +1,6 @@
-# Green Timer - Development Mandates
+# Green Code - Development Mandates
 
-This document serves as the "Source of Truth" for the architecture, coding standards, and UI patterns of the Green Timer & Stopwatch extension.
+This document serves as the "Source of Truth" for the architecture, coding standards, and UI patterns of the Green Code extension.
 
 ## 🏗️ Data Architecture (Problem-Centric Nested Model)
 *   **Storage Key**: `leetcode_history`

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Green Timer & Stopwatch Build Script
+# Green Code Build Script
 # This script packages the extension for Chrome/Firefox stores.
 
-NAME="green-timer"
+NAME="green-code"
 VERSION=$(grep '"version"' manifest.json | cut -d '"' -f 4)
 OUT_DIR="dist"
 FILENAME="${NAME}-v${VERSION}.zip"

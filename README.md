@@ -1,10 +1,10 @@
 # Green Code
 
-**Engineering Innovation for Everyone**
+**Engineering Innovation for Everyone | by NXORG**
 
-The ultimate LeetCode companion designed to master coding interviews through disciplined time tracking and habit building.
+The Universal Coding Hub designed to master competitive programming and technical interviews. Whether you are grinding LeetCode, competing on Codeforces, or studying advanced algorithms, Green Code empowers you with disciplined time tracking and habit building.
 
-A sleek, high-contrast (Dark/Light mode) browser extension with LeetCode auto-detection, comprehensive analytics, and a fully responsive dashboard.
+A sleek, high-contrast (Dark/Light mode) browser extension with problem auto-detection (optimized for LeetCode), comprehensive analytics, and a fully responsive data-driven dashboard.
 
 ---
 

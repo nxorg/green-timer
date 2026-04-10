@@ -1,15 +1,15 @@
 # Green Code - The Master User Guide 📗
 
-Welcome to **Green Code**. This guide will help you master every feature of your new productivity hub to ensure you dominate your technical interviews with discipline and data.
+Welcome to **Green Code: The Universal Coding Hub**. This guide will help you master every feature of your new productivity dashboard to ensure you dominate your technical interviews, whether you are practicing on LeetCode, competing on Codeforces, or studying algorithms.
 
 ---
 
 ## 1. Core Workflow: Tracking Problems
 
-### 🔍 Auto-Detection
-Green Code automatically "sniffs" the LeetCode page you are on. 
-*   **Manual Add**: Type the problem name or number in the input box and click **ADD**.
-*   **Smart Add**: Enable **"Auto-Add"** in Settings to have problems added the moment you open them on LeetCode.
+### 🔍 Universal Tracking & Auto-Detection
+Green Code tracks any coding problem you throw at it. For supported platforms (like LeetCode), it automatically "sniffs" the page you are on. 
+*   **Manual Add**: Type the problem name or number in the input box and click **ADD**. Perfect for Codeforces or offline studying.
+*   **Smart Add**: Enable **"Auto-Add"** in Settings to have problems added the moment you open them on supported platforms.
 
 ### ⏱️ Using the Timers
 *   **START/PAUSE**: Click to control your practice session.
